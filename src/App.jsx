@@ -1,4 +1,31 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+
+const FONT = "'Space Grotesk', system-ui, sans-serif";
+const MONO = "'JetBrains Mono', 'Courier New', monospace";
+
+// Animated number counter — ticks from 0 to target on mount
+function useCountUp(target, duration = 1200, decimals = 0) {
+  const [val, setVal] = useState(0);
+  const raf = useRef();
+  useEffect(() => {
+    const start = performance.now();
+    const tick = (now) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+      setVal(target * eased);
+      if (p < 1) raf.current = requestAnimationFrame(tick);
+      else setVal(target);
+    };
+    raf.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf.current);
+  }, [target, duration]);
+  return decimals ? val.toFixed(decimals) : Math.round(val);
+}
+
+function Counter({ to, decimals = 0, suffix = "" }) {
+  const v = useCountUp(to, 1200, decimals);
+  return <span>{v}{suffix}</span>;
+}
 
 const scoreColor = (score) => {
   if (score >= 80) return "#00ff88";
@@ -54,13 +81,14 @@ const okDetails = {
 function ScoreRing({ score }) {
   const r = 54;
   const circ = 2 * Math.PI * r;
-  const dash = (score / 100) * circ;
+  const animScore = useCountUp(score, 1400);
+  const dash = (animScore / 100) * circ;
   const color = scoreColor(score);
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
       <div style={{
         position: "absolute", inset: -8, borderRadius: "50%",
-        background: `radial-gradient(circle, ${color}22 0%, transparent 70%)`,
+        background: `radial-gradient(circle, ${color}33 0%, transparent 70%)`,
         animation: "pulse 2s ease-in-out infinite"
       }} />
       <svg width="160" height="160" viewBox="0 0 140 140">
@@ -73,33 +101,36 @@ function ScoreRing({ score }) {
         <circle cx="70" cy="70" r={r} fill="none" stroke="#ffffff08" strokeWidth="12" />
         <circle cx="70" cy="70" r={r} fill="none" stroke={color} strokeWidth="12"
           strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-          transform="rotate(-90 70 70)" filter="url(#glow)"
-          style={{ transition: "stroke-dasharray 1.2s cubic-bezier(0.4,0,0.2,1)" }} />
-        <text x="70" y="62" textAnchor="middle" fill={color} fontSize="30"
-          fontFamily="'Courier New', monospace" fontWeight="bold" filter="url(#glow)">{score}</text>
+          transform="rotate(-90 70 70)" filter="url(#glow)" />
+        <text x="70" y="62" textAnchor="middle" fill={color} fontSize="32"
+          fontFamily={MONO} fontWeight="bold" filter="url(#glow)">{animScore}</text>
         <text x="70" y="80" textAnchor="middle" fill="#ffffff66" fontSize="9"
-          fontFamily="'Courier New', monospace" letterSpacing="3">OUT OF 100</text>
+          fontFamily={MONO} letterSpacing="3">OUT OF 100</text>
         <text x="70" y="96" textAnchor="middle" fill={color} fontSize="9"
-          fontFamily="'Courier New', monospace" letterSpacing="2" filter="url(#glow)">{scoreLabel(score)}</text>
+          fontFamily={MONO} letterSpacing="2" filter="url(#glow)">{scoreLabel(score)}</text>
       </svg>
     </div>
   );
 }
 
-function StatBar({ label, value, max, color = "#ffd700", display }) {
-  const pct = Math.min((value / max) * 100, 100);
+function StatBar({ label, value, max, color = "#ffd700", display, decimals = 0 }) {
+  const [pct, setPct] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setPct(Math.min((value / max) * 100, 100)), 100);
+    return () => clearTimeout(t);
+  }, [value, max]);
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ color: "#ffffff66", fontSize: 11, letterSpacing: 1.5, fontFamily: "monospace" }}>{label}</span>
-        <span style={{ color, fontSize: 12, fontFamily: "monospace", fontWeight: "bold" }}>{display ?? value}</span>
+        <span style={{ color: "#ffffff66", fontSize: 11, letterSpacing: 1.5, fontFamily: MONO }}>{label}</span>
+        <span style={{ color, fontSize: 13, fontFamily: MONO, fontWeight: "bold" }}>{display ?? <Counter to={value} decimals={decimals} />}</span>
       </div>
       <div style={{ background: "#ffffff0a", borderRadius: 99, height: 6, overflow: "hidden" }}>
         <div style={{
           width: `${pct}%`, height: "100%", borderRadius: 99,
           background: `linear-gradient(90deg, ${color}88, ${color})`,
           boxShadow: `0 0 10px ${color}66`,
-          transition: "width 1.2s cubic-bezier(0.4,0,0.2,1)"
+          transition: "width 1.3s cubic-bezier(0.16,1,0.3,1)"
         }} />
       </div>
     </div>
@@ -161,9 +192,9 @@ function IssueCard({ text, level }) {
   );
 }
 
-function GlassCard({ children, style = {}, glow = false }) {
+function GlassCard({ children, style = {}, glow = false, className = "", onClick }) {
   return (
-    <div style={{
+    <div className={className} onClick={onClick} style={{
       background: "rgba(255,255,255,0.03)",
       border: "1px solid rgba(255,255,255,0.08)",
       borderRadius: 16, backdropFilter: "blur(20px)", padding: 28,
@@ -179,63 +210,84 @@ function GlassCard({ children, style = {}, glow = false }) {
 
 // REAL competitor comparison — built from actual nearby Places data
 function CompetitorBox({ comp }) {
+  const [open, setOpen] = useState(false);
   if (!comp || comp.count === 0) return null;
   const { avgRating, avgReviews, count, yourRating, yourReviews, pressure } = comp;
   const pressureColor = pressure === "HIGH" ? "#ff4444" : pressure === "MODERATE" ? "#ffd700" : "#00ff88";
+  const reviewGap = avgReviews - yourReviews;
   return (
-    <GlassCard style={{ marginBottom: 20, border: "1px solid rgba(0,170,255,0.2)" }}>
+    <GlassCard className="reveal hover-lift" style={{ marginBottom: 20, border: "1px solid rgba(0,170,255,0.2)", cursor: "pointer", animationDelay: "0.1s" }} onClick={() => setOpen(!open)}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontSize: 10, letterSpacing: 3, color: "#00aaff" }}>COMPETITOR PRESSURE</div>
-        <div style={{ fontSize: 11, fontWeight: "bold", color: pressureColor, letterSpacing: 2, padding: "4px 12px", borderRadius: 99, background: `${pressureColor}15`, border: `1px solid ${pressureColor}40` }}>{pressure}</div>
+        <div style={{ fontSize: 10, letterSpacing: 3, color: "#00aaff", fontFamily: MONO }}>COMPETITOR PRESSURE</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: "bold", color: pressureColor, letterSpacing: 2, padding: "4px 12px", borderRadius: 99, background: `${pressureColor}15`, border: `1px solid ${pressureColor}40`, fontFamily: MONO }}>{pressure}</div>
+          <span style={{ color: "#00aaff", fontSize: 12, opacity: 0.6 }}>{open ? "▲" : "▼"}</span>
+        </div>
       </div>
-      <div style={{ fontSize: 11, color: "#ffffff44", marginBottom: 16, letterSpacing: 1 }}>
+      <div style={{ fontSize: 11, color: "#ffffff44", marginBottom: 16, letterSpacing: 0.5 }}>
         Compared against {count} nearby business{count > 1 ? "es" : ""} in the same category
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 14 }}>
-          <div style={{ fontSize: 9, color: "#ffffff44", letterSpacing: 1, marginBottom: 8 }}>AVG RATING</div>
+          <div style={{ fontSize: 9, color: "#ffffff44", letterSpacing: 1, marginBottom: 8, fontFamily: MONO }}>AVG RATING</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 22, fontWeight: "bold", fontFamily: "monospace", color: yourRating >= avgRating ? "#00ff88" : "#ff4444" }}>{yourRating.toFixed(1)}</span>
+            <span style={{ fontSize: 24, fontWeight: "bold", fontFamily: MONO, color: yourRating >= avgRating ? "#00ff88" : "#ff4444" }}><Counter to={yourRating} decimals={1} /></span>
             <span style={{ fontSize: 11, color: "#ffffff44" }}>you</span>
-            <span style={{ fontSize: 14, color: "#ffffff66", marginLeft: "auto" }}>{avgRating.toFixed(1)}</span>
+            <span style={{ fontSize: 15, color: "#ffffff66", marginLeft: "auto", fontFamily: MONO }}>{avgRating.toFixed(1)}</span>
             <span style={{ fontSize: 11, color: "#ffffff44" }}>them</span>
           </div>
         </div>
         <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 14 }}>
-          <div style={{ fontSize: 9, color: "#ffffff44", letterSpacing: 1, marginBottom: 8 }}>AVG REVIEWS</div>
+          <div style={{ fontSize: 9, color: "#ffffff44", letterSpacing: 1, marginBottom: 8, fontFamily: MONO }}>AVG REVIEWS</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 22, fontWeight: "bold", fontFamily: "monospace", color: yourReviews >= avgReviews ? "#00ff88" : "#ff4444" }}>{yourReviews}</span>
+            <span style={{ fontSize: 24, fontWeight: "bold", fontFamily: MONO, color: yourReviews >= avgReviews ? "#00ff88" : "#ff4444" }}><Counter to={yourReviews} /></span>
             <span style={{ fontSize: 11, color: "#ffffff44" }}>you</span>
-            <span style={{ fontSize: 14, color: "#ffffff66", marginLeft: "auto" }}>{avgReviews}</span>
+            <span style={{ fontSize: 15, color: "#ffffff66", marginLeft: "auto", fontFamily: MONO }}>{avgReviews}</span>
             <span style={{ fontSize: 11, color: "#ffffff44" }}>them</span>
           </div>
         </div>
       </div>
+      {open && (
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", fontSize: 12, color: "#ffffff88", lineHeight: 1.7 }}>
+          {reviewGap > 0
+            ? `You're behind by about ${reviewGap} reviews on average. Closing that gap is the fastest lever to look more trusted in local search — RepBlaze automates review collection to get you there.`
+            : `You're matching or beating nearby competitors on reviews. RepBlaze helps you defend that lead with consistent collection and fast responses.`}
+        </div>
+      )}
     </GlassCard>
   );
 }
 
-// Action Plan — ranked, generated from REAL gaps found
+// Action Plan — ranked, generated from REAL gaps found, items expandable
 function ActionPlan({ plan }) {
+  const [openIdx, setOpenIdx] = useState(0);
   if (!plan || plan.length === 0) return null;
   const impactColor = { HIGH: "#ff4444", MEDIUM: "#ffd700", LOW: "#00aaff" };
   return (
-    <GlassCard style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffd700", marginBottom: 6 }}>REPBLAZE ACTION PLAN</div>
-      <div style={{ fontSize: 11, color: "#ffffff44", marginBottom: 20, letterSpacing: 1 }}>Ranked by estimated impact on your local presence</div>
-      {plan.map((p, i) => (
-        <div key={i} style={{ display: "flex", gap: 14, marginBottom: 16, paddingBottom: 16, borderBottom: i < plan.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-          <div style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: 13 }}>{i + 1}</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: "bold", color: "#fff" }}>{p.title}</span>
-              <span style={{ fontSize: 9, fontWeight: "bold", letterSpacing: 1.5, color: impactColor[p.impact], padding: "3px 10px", borderRadius: 99, background: `${impactColor[p.impact]}15`, border: `1px solid ${impactColor[p.impact]}40` }}>{p.impact} IMPACT</span>
+    <GlassCard className="reveal" style={{ marginBottom: 20, animationDelay: "0.2s" }}>
+      <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffd700", marginBottom: 6, fontFamily: MONO }}>REPBLAZE ACTION PLAN</div>
+      <div style={{ fontSize: 11, color: "#ffffff44", marginBottom: 20, letterSpacing: 0.5 }}>Ranked by estimated impact · tap to expand</div>
+      {plan.map((p, i) => {
+        const open = openIdx === i;
+        return (
+          <div key={i} onClick={() => setOpenIdx(open ? -1 : i)}
+            style={{ display: "flex", gap: 14, marginBottom: 12, paddingBottom: 12, borderBottom: i < plan.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none", cursor: "pointer", borderRadius: 10, padding: 10, background: open ? "rgba(255,255,255,0.02)" : "transparent", transition: "background 0.25s" }}>
+            <div style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: 13, fontFamily: MONO }}>{i + 1}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: open ? 8 : 0, flexWrap: "wrap", gap: 6 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.title}</span>
+                <span style={{ fontSize: 9, fontWeight: "bold", letterSpacing: 1.5, color: impactColor[p.impact], padding: "3px 10px", borderRadius: 99, background: `${impactColor[p.impact]}15`, border: `1px solid ${impactColor[p.impact]}40`, fontFamily: MONO }}>{p.impact} IMPACT</span>
+              </div>
+              {open && (
+                <div style={{ animation: "reveal 0.3s ease both" }}>
+                  <div style={{ fontSize: 12, color: "#ffffff77", lineHeight: 1.6, marginBottom: 6 }}>{p.why}</div>
+                  <div style={{ fontSize: 12, color: "#00ff88cc", lineHeight: 1.6 }}><span style={{ fontWeight: "bold" }}>→ </span>{p.action}</div>
+                </div>
+              )}
             </div>
-            <div style={{ fontSize: 12, color: "#ffffff77", lineHeight: 1.6, marginBottom: 6 }}>{p.why}</div>
-            <div style={{ fontSize: 12, color: "#00ff88aa", lineHeight: 1.6 }}><span style={{ fontWeight: "bold" }}>→ </span>{p.action}</div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </GlassCard>
   );
 }
@@ -461,12 +513,22 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#080810", color: "#e0e0e0", fontFamily: "'Courier New', monospace", position: "relative", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#080810", color: "#e0e0e0", fontFamily: FONT, position: "relative", overflow: "hidden" }}>
       <style>{`
         @keyframes pulse { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.05)} }
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes reveal { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        @keyframes glowPulse { 0%,100%{box-shadow:0 0 20px rgba(255,215,0,0.15)} 50%{box-shadow:0 0 35px rgba(255,215,0,0.3)} }
         input::placeholder{color:#ffffff33}
-        input:focus{border-color:rgba(255,215,0,0.5) !important; box-shadow:0 0 20px rgba(255,215,0,0.1) !important}
+        input:focus{border-color:rgba(255,215,0,0.5) !important; box-shadow:0 0 20px rgba(255,215,0,0.15) !important}
+        .reveal{animation:reveal 0.6s cubic-bezier(0.16,1,0.3,1) both}
+        .hover-lift{transition:transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s, border-color 0.25s}
+        .hover-lift:hover{transform:translateY(-3px); box-shadow:0 12px 40px rgba(0,0,0,0.5), 0 0 30px rgba(255,215,0,0.08); border-color:rgba(255,215,0,0.2)}
+        .glow-btn{transition:transform 0.2s, box-shadow 0.3s}
+        .glow-btn:hover{transform:translateY(-2px) scale(1.02); box-shadow:0 0 50px rgba(255,215,0,0.5) !important}
+        .glow-btn:active{transform:scale(0.98)}
+        .audit-btn:hover:not(:disabled){transform:scale(1.03); box-shadow:0 0 40px rgba(255,215,0,0.5) !important}
       `}</style>
 
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
@@ -509,8 +571,8 @@ export default function App() {
               placeholder="Search any local business…"
               style={{ flex: 1, minWidth: 200, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#fff", padding: "16px 18px", fontSize: 14, fontFamily: "monospace", outline: "none", transition: "all 0.3s" }}
             />
-            <button onClick={runAudit} disabled={loading || !mapsReady}
-              style={{ background: mapsReady ? "linear-gradient(135deg, #ffd700, #ff8c00)" : "rgba(255,255,255,0.1)", color: mapsReady ? "#0a0a0f" : "#ffffff44", border: "none", borderRadius: 10, padding: "16px 28px", fontFamily: "monospace", fontWeight: "bold", fontSize: 11, letterSpacing: 2, cursor: mapsReady ? "pointer" : "not-allowed", whiteSpace: "nowrap", minWidth: 130, boxShadow: mapsReady ? "0 0 30px rgba(255,215,0,0.3)" : "none", transition: "all 0.3s" }}>
+            <button onClick={runAudit} disabled={loading || !mapsReady} className="audit-btn"
+              style={{ background: mapsReady ? "linear-gradient(135deg, #ffd700, #ff8c00)" : "rgba(255,255,255,0.1)", color: mapsReady ? "#0a0a0f" : "#ffffff44", border: "none", borderRadius: 10, padding: "16px 28px", fontFamily: MONO, fontWeight: "bold", fontSize: 11, letterSpacing: 2, cursor: mapsReady ? "pointer" : "not-allowed", whiteSpace: "nowrap", minWidth: 130, boxShadow: mapsReady ? "0 0 30px rgba(255,215,0,0.3)" : "none", transition: "all 0.3s" }}>
               {scanText}
             </button>
           </div>
@@ -542,7 +604,7 @@ export default function App() {
         {result && (
           <div>
             {/* Score + name */}
-            <GlassCard style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 }}>
+            <GlassCard className="reveal hover-lift" style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 22, fontWeight: "bold", color: "#fff", marginBottom: 6 }}>{result.name}</div>
                 <div style={{ fontSize: 11, color: "#ffffff33", letterSpacing: 1, marginBottom: 16 }}>{result.address}</div>
@@ -559,9 +621,9 @@ export default function App() {
             {result.comp && <CompetitorBox comp={result.comp} />}
 
             {/* Metrics */}
-            <GlassCard style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffffff33", marginBottom: 20 }}>PROFILE METRICS — REAL DATA</div>
-              <StatBar label="STAR RATING" value={result.rating} max={5} display={result.rating.toFixed(1)} color={result.rating >= 4 ? "#00ff88" : result.rating >= 3 ? "#ffd700" : "#ff4444"} />
+            <GlassCard className="reveal hover-lift" style={{ marginBottom: 20, animationDelay: "0.15s" }}>
+              <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffffff33", marginBottom: 20, fontFamily: MONO }}>PROFILE METRICS — REAL DATA</div>
+              <StatBar label="STAR RATING" value={result.rating} max={5} decimals={1} color={result.rating >= 4 ? "#00ff88" : result.rating >= 3 ? "#ffd700" : "#ff4444"} />
               <StatBar label="TOTAL REVIEWS" value={result.reviewCount} max={200} color="#ffd700" />
               <StatBar label="PHOTOS UPLOADED" value={result.photoCount} max={20} color="#00aaff" />
               <StatBar label="PROFILE COMPLETENESS" value={[result.rating > 0, result.reviewCount > 0, result.photoCount > 0, result.hasHours, result.hasWebsite, result.hasPhone].filter(Boolean).length} max={6} display={`${[result.rating > 0, result.reviewCount > 0, result.photoCount > 0, result.hasHours, result.hasWebsite, result.hasPhone].filter(Boolean).length}/6`} color="#aa88ff" />
@@ -577,13 +639,13 @@ export default function App() {
             </div>
 
             {/* CTA */}
-            <GlassCard glow style={{ textAlign: "center", border: "1px solid rgba(255,215,0,0.2)" }}>
-              <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffd700", marginBottom: 10 }}>WANT REPBLAZE TO FIX THIS FOR YOU?</div>
+            <GlassCard glow className="reveal" style={{ textAlign: "center", border: "1px solid rgba(255,215,0,0.2)", animationDelay: "0.3s" }}>
+              <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffd700", marginBottom: 10, fontFamily: MONO }}>WANT REPBLAZE TO FIX THIS FOR YOU?</div>
               <div style={{ fontSize: 15, color: "#ffffff88", marginBottom: 24, lineHeight: 1.7, maxWidth: 480, margin: "0 auto 24px" }}>
                 We manage your Google profile, automate review collection, respond to every review, and track competitors — so you can focus on running your business.
               </div>
-              <button onClick={() => setModalOpen(true)}
-                style={{ display: "inline-block", background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", padding: "16px 36px", borderRadius: 10, fontFamily: "monospace", fontWeight: "bold", fontSize: 12, letterSpacing: 2, border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,215,0,0.3)" }}>
+              <button onClick={() => setModalOpen(true)} className="glow-btn"
+                style={{ display: "inline-block", background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", padding: "16px 36px", borderRadius: 10, fontFamily: MONO, fontWeight: "bold", fontSize: 12, letterSpacing: 2, border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,215,0,0.3)" }}>
                 ACTIVATE REPBLAZE →
               </button>
             </GlassCard>
