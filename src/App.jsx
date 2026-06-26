@@ -41,31 +41,31 @@ const scoreLabel = (score) => {
 
 const issueDetails = {
   "LOW RATING": {
-    why: "Businesses below 4.0 stars lose up to 70% of potential customers before they even visit.",
-    fix: "RepBlaze responds to every review and implements a proven review generation system."
+    why: "A rating below 4.0 stars can turn customers away before they visit, and may weaken the trust signals that help you stand out locally.",
+    fix: "RepBlaze responds to every review and runs a consistent review request system to lift your average over time."
   },
   "FEW REVIEWS": {
-    why: "Google ranks businesses with more reviews higher in local search. Fewer reviews = less visibility.",
-    fix: "RepBlaze automates review requests via text after every customer interaction."
+    why: "Profiles with more recent reviews tend to look more trusted to new customers. A thin review count can limit how often people choose you.",
+    fix: "RepBlaze automates review requests by text after every customer interaction."
   },
   "NO PHOTOS": {
-    why: "Listings with photos get 42% more direction requests and 35% more website clicks.",
-    fix: "RepBlaze sets up and manages your photo strategy to maximize profile engagement."
+    why: "Listings with photos tend to get more engagement than those without. An empty profile can look inactive or incomplete.",
+    fix: "RepBlaze sets up and manages a photo strategy to keep your profile active and engaging."
   },
   "NO HOURS LISTED": {
-    why: "Missing hours causes Google to rank you lower and customers to choose a competitor instead.",
+    why: "Missing hours can cause customers to choose a competitor, and may signal an incomplete profile.",
     fix: "RepBlaze completes and maintains your full profile so nothing is missing."
   },
   "NO WEBSITE LINKED": {
-    why: "No website link signals low credibility to both Google and potential customers.",
+    why: "No website link can signal lower credibility to potential customers comparing their options.",
     fix: "RepBlaze links and optimizes your web presence across your Google profile."
   },
   "NO PHONE NUMBER": {
-    why: "Missing contact info means customers can't reach you, and incomplete profiles may rank lower.",
+    why: "Missing contact info means customers can't reach you quickly, and an incomplete profile can look less trustworthy.",
     fix: "RepBlaze audits and completes your full profile for stronger trust signals."
   },
   "BEHIND COMPETITORS": {
-    why: "Nearby competitors have stronger review counts or ratings, which can pull customers toward them in local search.",
+    why: "Nearby competitors have stronger review counts or ratings, which can pull customers toward them when they compare local options.",
     fix: "RepBlaze tracks competitor activity and helps you close the gap with consistent review collection."
   }
 };
@@ -163,7 +163,7 @@ function IssueCard({ text, level }) {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ color: c.color, fontSize: 14 }}>{c.icon}</span>
-          <span style={{ color: c.color, fontSize: 11, fontFamily: "monospace", letterSpacing: 1.5, fontWeight: "bold" }}>{text}</span>
+          <span style={{ color: c.color, fontSize: 11, fontFamily: MONO, letterSpacing: 1.5, fontWeight: "bold" }}>{text}</span>
         </div>
         {(detail || okDetail) && (
           <span style={{ color: c.color, fontSize: 12, opacity: 0.6 }}>{open ? "▲" : "▼"}</span>
@@ -215,6 +215,7 @@ function CompetitorBox({ comp }) {
   const { avgRating, avgReviews, count, yourRating, yourReviews, pressure } = comp;
   const pressureColor = pressure === "HIGH" ? "#ff4444" : pressure === "MODERATE" ? "#ffd700" : "#00ff88";
   const reviewGap = avgReviews - yourReviews;
+  const ratingAhead = Math.round(yourRating * 10) >= Math.round(avgRating * 10);
   return (
     <GlassCard className="reveal hover-lift" style={{ marginBottom: 20, border: "1px solid rgba(0,170,255,0.2)", cursor: "pointer", animationDelay: "0.1s" }} onClick={() => setOpen(!open)}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
@@ -231,7 +232,7 @@ function CompetitorBox({ comp }) {
         <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 14 }}>
           <div style={{ fontSize: 9, color: "#ffffff44", letterSpacing: 1, marginBottom: 8, fontFamily: MONO }}>AVG RATING</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 24, fontWeight: "bold", fontFamily: MONO, color: yourRating >= avgRating ? "#00ff88" : "#ff4444" }}><Counter to={yourRating} decimals={1} /></span>
+            <span style={{ fontSize: 24, fontWeight: "bold", fontFamily: MONO, color: ratingAhead ? "#00ff88" : "#ff4444" }}><Counter to={yourRating} decimals={1} /></span>
             <span style={{ fontSize: 11, color: "#ffffff44" }}>you</span>
             <span style={{ fontSize: 15, color: "#ffffff66", marginLeft: "auto", fontFamily: MONO }}>{avgRating.toFixed(1)}</span>
             <span style={{ fontSize: 11, color: "#ffffff44" }}>them</span>
@@ -325,10 +326,10 @@ function LeadModal({ open, onClose, businessName, onSubmit }) {
                 <div key={f.k} style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 9, color: "#ffffff44", letterSpacing: 2, marginBottom: 6 }}>{f.label}</div>
                   <input value={form[f.k]} onChange={e => setForm({ ...form, [f.k]: e.target.value })} placeholder={f.ph}
-                    style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", padding: "12px 14px", fontSize: 13, fontFamily: "monospace", outline: "none" }} />
+                    style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", padding: "12px 14px", fontSize: 14, fontFamily: FONT, outline: "none" }} />
                 </div>
               ))}
-              <button onClick={submit} style={{ width: "100%", marginTop: 8, background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", border: "none", borderRadius: 8, padding: "14px", fontFamily: "monospace", fontWeight: "bold", fontSize: 12, letterSpacing: 2, cursor: "pointer", boxShadow: "0 0 30px rgba(255,215,0,0.3)" }}>SEND IT →</button>
+              <button onClick={submit} style={{ width: "100%", marginTop: 8, background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", border: "none", borderRadius: 8, padding: "14px", fontFamily: MONO, fontWeight: "bold", fontSize: 12, letterSpacing: 2, cursor: "pointer", boxShadow: "0 0 30px rgba(255,215,0,0.3)" }}>SEND IT →</button>
               <div style={{ fontSize: 10, color: "#ffffff33", textAlign: "center", marginTop: 12 }}>Name + phone or email required</div>
             </>
           ) : (
@@ -336,7 +337,7 @@ function LeadModal({ open, onClose, businessName, onSubmit }) {
               <div style={{ fontSize: 40, marginBottom: 12 }}>🔥</div>
               <div style={{ fontSize: 16, fontWeight: "bold", color: "#00ff88", marginBottom: 8 }}>You're in.</div>
               <div style={{ fontSize: 12, color: "#ffffff66", marginBottom: 24, lineHeight: 1.6 }}>We've got your info and we'll be in touch fast.</div>
-              <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "12px 28px", fontFamily: "monospace", fontWeight: "bold", fontSize: 11, letterSpacing: 2, cursor: "pointer" }}>CLOSE</button>
+              <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "12px 28px", fontFamily: MONO, fontWeight: "bold", fontSize: 11, letterSpacing: 2, cursor: "pointer" }}>CLOSE</button>
             </div>
           )}
         </GlassCard>
@@ -529,6 +530,13 @@ export default function App() {
         .glow-btn:hover{transform:translateY(-2px) scale(1.02); box-shadow:0 0 50px rgba(255,215,0,0.5) !important}
         .glow-btn:active{transform:scale(0.98)}
         .audit-btn:hover:not(:disabled){transform:scale(1.03); box-shadow:0 0 40px rgba(255,215,0,0.5) !important}
+        @media print {
+          body { background: #fff !important; }
+          .no-print { display: none !important; }
+          .print-only { display: block !important; }
+          .print-card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd !important; background: #fff !important; }
+          * { color: #111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
       `}</style>
 
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
@@ -541,8 +549,8 @@ export default function App() {
 
       <div style={{ position: "relative", zIndex: 1, padding: "28px 40px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", backdropFilter: "blur(10px)", background: "rgba(8,8,16,0.8)" }}>
         <div>
-          <div style={{ fontSize: 24, fontWeight: "bold", letterSpacing: 4, background: "linear-gradient(135deg, #ffd700, #ff8c00)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>REPBLAZE</div>
-          <div style={{ fontSize: 12, color: "#ffffffaa", letterSpacing: 3, marginTop: 4 }}>GOOGLE BUSINESS PROFILE INTELLIGENCE</div>
+          <div style={{ fontSize: 24, fontWeight: "bold", letterSpacing: 4, fontFamily: MONO, background: "linear-gradient(135deg, #ffd700, #ff8c00)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>REPBLAZE</div>
+          <div style={{ fontSize: 11, color: "#ffffffaa", letterSpacing: 3, marginTop: 4, fontFamily: MONO }}>GOOGLE BUSINESS PROFILE INTELLIGENCE</div>
         </div>
         {!mapsReady && (
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -561,7 +569,7 @@ export default function App() {
           <p style={{ color: "#ffffff44", fontSize: 13, letterSpacing: 1 }}>Free instant audit · No signup · Real data from Google</p>
         </div>
 
-        <GlassCard glow style={{ marginBottom: 32 }}>
+        <GlassCard glow className="no-print" style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 10, color: "#ffffff44", letterSpacing: 2, marginBottom: 12 }}>BUSINESS NAME + CITY / STATE</div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <input
@@ -569,7 +577,7 @@ export default function App() {
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && runAudit()}
               placeholder="Search any local business…"
-              style={{ flex: 1, minWidth: 200, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#fff", padding: "16px 18px", fontSize: 14, fontFamily: "monospace", outline: "none", transition: "all 0.3s" }}
+              style={{ flex: 1, minWidth: 200, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#fff", padding: "16px 18px", fontSize: 15, fontFamily: FONT, outline: "none", transition: "all 0.3s" }}
             />
             <button onClick={runAudit} disabled={loading || !mapsReady} className="audit-btn"
               style={{ background: mapsReady ? "linear-gradient(135deg, #ffd700, #ff8c00)" : "rgba(255,255,255,0.1)", color: mapsReady ? "#0a0a0f" : "#ffffff44", border: "none", borderRadius: 10, padding: "16px 28px", fontFamily: MONO, fontWeight: "bold", fontSize: 11, letterSpacing: 2, cursor: mapsReady ? "pointer" : "not-allowed", whiteSpace: "nowrap", minWidth: 130, boxShadow: mapsReady ? "0 0 30px rgba(255,215,0,0.3)" : "none", transition: "all 0.3s" }}>
@@ -578,7 +586,7 @@ export default function App() {
           </div>
           {error && <div style={{ marginTop: 12, color: "#ff4444", fontSize: 12, letterSpacing: 1 }}>⚠ {error}</div>}
           <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 16 }}>
-            {["Free instant scan", "No signup", "AI-powered", "Built for local"].map(t => (
+            {["Free instant scan", "No signup", "Real Google data", "Built for local"].map(t => (
               <span key={t} style={{ fontSize: 10, color: "#ffffff44", letterSpacing: 1, display: "flex", alignItems: "center", gap: 5 }}><span style={{ color: "#00ff88" }}>✓</span>{t}</span>
             ))}
           </div>
@@ -603,15 +611,21 @@ export default function App() {
 
         {result && (
           <div>
+            {/* Print-only report header */}
+            <div className="print-only" style={{ display: "none", marginBottom: 24, paddingBottom: 16, borderBottom: "2px solid #ffd700" }}>
+              <div style={{ fontSize: 22, fontWeight: "bold", fontFamily: MONO, letterSpacing: 3 }}>REPBLAZE AUDIT REPORT</div>
+              <div style={{ fontSize: 12, marginTop: 6 }}>{result.name} · Generated {new Date().toLocaleDateString()}</div>
+            </div>
+
             {/* Score + name */}
             <GlassCard className="reveal hover-lift" style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 22, fontWeight: "bold", color: "#fff", marginBottom: 6 }}>{result.name}</div>
                 <div style={{ fontSize: 11, color: "#ffffff33", letterSpacing: 1, marginBottom: 16 }}>{result.address}</div>
                 <div style={{ fontSize: 12, color: "#ffffff66", lineHeight: 1.7 }}>
-                  {result.score < 50 && "⚠ Your profile has critical gaps that are actively costing you customers and search visibility."}
-                  {result.score >= 50 && result.score < 80 && "◆ Your profile has room to grow. Fixing these issues will directly increase your local search ranking."}
-                  {result.score >= 80 && "✓ Strong profile. Let's protect your ranking and keep the reviews coming."}
+                  {result.score < 50 && "⚠ Your profile has critical gaps that may be costing you customers and visibility."}
+                  {result.score >= 50 && result.score < 80 && "◆ Your profile has room to grow. Fixing these issues can help strengthen your local presence."}
+                  {result.score >= 80 && "✓ Strong profile. Let's protect your position and keep the reviews coming."}
                 </div>
               </div>
               <ScoreRing score={result.score} />
@@ -639,15 +653,23 @@ export default function App() {
             </div>
 
             {/* CTA */}
-            <GlassCard glow className="reveal" style={{ textAlign: "center", border: "1px solid rgba(255,215,0,0.2)", animationDelay: "0.3s" }}>
+            <GlassCard glow className="reveal no-print" style={{ textAlign: "center", border: "1px solid rgba(255,215,0,0.2)", animationDelay: "0.3s" }}>
               <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffd700", marginBottom: 10, fontFamily: MONO }}>WANT REPBLAZE TO FIX THIS FOR YOU?</div>
               <div style={{ fontSize: 15, color: "#ffffff88", marginBottom: 24, lineHeight: 1.7, maxWidth: 480, margin: "0 auto 24px" }}>
                 We manage your Google profile, automate review collection, respond to every review, and track competitors — so you can focus on running your business.
               </div>
-              <button onClick={() => setModalOpen(true)} className="glow-btn"
-                style={{ display: "inline-block", background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", padding: "16px 36px", borderRadius: 10, fontFamily: MONO, fontWeight: "bold", fontSize: 12, letterSpacing: 2, border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,215,0,0.3)" }}>
-                ACTIVATE REPBLAZE →
-              </button>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                <button onClick={() => setModalOpen(true)} className="glow-btn"
+                  style={{ background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", padding: "16px 36px", borderRadius: 10, fontFamily: MONO, fontWeight: "bold", fontSize: 12, letterSpacing: 2, border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,215,0,0.3)" }}>
+                  ACTIVATE REPBLAZE →
+                </button>
+                <button onClick={() => window.print()}
+                  style={{ background: "rgba(255,255,255,0.06)", color: "#fff", padding: "16px 28px", borderRadius: 10, fontFamily: MONO, fontWeight: "bold", fontSize: 12, letterSpacing: 2, border: "1px solid rgba(255,255,255,0.15)", cursor: "pointer", transition: "all 0.25s" }}
+                  onMouseOver={e => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}
+                  onMouseOut={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; }}>
+                  ↓ DOWNLOAD REPORT
+                </button>
+              </div>
             </GlassCard>
           </div>
         )}
