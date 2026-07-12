@@ -1,350 +1,295 @@
 import { useState, useEffect, useRef } from "react";
 
-const FONT = "'Space Grotesk', system-ui, sans-serif";
-const MONO = "'JetBrains Mono', 'Courier New', monospace";
+/* ============================================================
+   CONFIG
+   ------------------------------------------------------------
+   LEAD_ENDPOINT: your RepBlaze Apps Script web-app /exec URL.
+   Leads POST here AND back up to localStorage — never lost.
+   ============================================================ */
+const LEAD_ENDPOINT = ""; // ← paste Apps Script /exec URL here
 
-// Animated number counter — ticks from 0 to target on mount
-function useCountUp(target, duration = 1200, decimals = 0) {
-  const [val, setVal] = useState(0);
-  const raf = useRef();
-  useEffect(() => {
-    const start = performance.now();
-    const tick = (now) => {
-      const p = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
-      setVal(target * eased);
-      if (p < 1) raf.current = requestAnimationFrame(tick);
-      else setVal(target);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
-  }, [target, duration]);
-  return decimals ? val.toFixed(decimals) : Math.round(val);
-}
+/* ---------- helpers ---------- */
 
-function Counter({ to, decimals = 0, suffix = "" }) {
-  const v = useCountUp(to, 1200, decimals);
-  return <span>{v}{suffix}</span>;
-}
+const daysAgo = (d) => Math.floor((Date.now() - d.getTime()) / 86400000);
 
-const scoreColor = (score) => {
-  if (score >= 80) return "#00ff88";
-  if (score >= 50) return "#ffd700";
-  return "#ff4444";
+const gradeOf = (score) => {
+  if (score >= 85) return "A";
+  if (score >= 70) return "B";
+  if (score >= 55) return "C";
+  if (score >= 40) return "D";
+  return "F";
 };
 
-const scoreLabel = (score) => {
-  if (score >= 80) return "HEALTHY";
-  if (score >= 50) return "NEEDS WORK";
-  return "CRITICAL";
+const gradeColor = (g) =>
+  g === "A" || g === "B" ? "var(--green)" : g === "C" ? "var(--amber)" : "var(--red)";
+
+const gradeVerdict = {
+  A: "Strong profile. The job now is defending the lead.",
+  B: "Solid foundation with clear room to grow.",
+  C: "Meaningful gaps. Customers comparing options may pass you over.",
+  D: "Serious gaps that can push customers to competitors.",
+  F: "Critical gaps across the profile. This is likely costing you customers.",
 };
 
-const issueDetails = {
-  "LOW RATING": {
-    why: "A rating below 4.0 stars can turn customers away before they visit, and may weaken the trust signals that help you stand out locally.",
-    fix: "RepBlaze responds to every review and runs a consistent review request system to lift your average over time."
+/* ---------- finding copy (why it matters / how RepBlaze fixes it) ---------- */
+
+const FINDING_DETAIL = {
+  "Low star rating": {
+    why: "A rating below 4.0 can turn customers away before they ever visit, and weakens the trust signals that help you stand out locally.",
+    fix: "RepBlaze responds to every review and runs a consistent review-request system designed to lift your average over time.",
   },
-  "FEW REVIEWS": {
-    why: "Profiles with more recent reviews tend to look more trusted to new customers. A thin review count can limit how often people choose you.",
-    fix: "RepBlaze automates review requests by text after every customer interaction."
+  "No reviews yet": {
+    why: "With zero reviews, customers comparing local options have no proof anyone chose you. Most will pick the business with visible feedback.",
+    fix: "RepBlaze sets up an automated review-request flow so every customer becomes a chance at a review.",
   },
-  "NO PHOTOS": {
-    why: "Listings with photos tend to get more engagement than those without. An empty profile can look inactive or incomplete.",
-    fix: "RepBlaze sets up and manages a photo strategy to keep your profile active and engaging."
+  "Thin review count": {
+    why: "Profiles with more recent reviews tend to look more trusted to new customers. A thin count limits how often people choose you.",
+    fix: "RepBlaze automates review requests by text after every customer interaction.",
   },
-  "NO HOURS LISTED": {
-    why: "Missing hours can cause customers to choose a competitor, and may signal an incomplete profile.",
-    fix: "RepBlaze completes and maintains your full profile so nothing is missing."
+  "Reviews going stale": {
+    why: "When the newest reviews visible on your profile are months old, the business can look inactive — even if it's busy.",
+    fix: "RepBlaze keeps fresh reviews flowing so your profile always looks alive.",
   },
-  "NO WEBSITE LINKED": {
-    why: "No website link can signal lower credibility to potential customers comparing their options.",
-    fix: "RepBlaze links and optimizes your web presence across your Google profile."
+  "No photos": {
+    why: "Listings with photos tend to get more engagement than those without. An empty gallery can look inactive or incomplete.",
+    fix: "RepBlaze sets up and manages a photo strategy to keep your profile active and engaging.",
   },
-  "NO PHONE NUMBER": {
-    why: "Missing contact info means customers can't reach you quickly, and an incomplete profile can look less trustworthy.",
-    fix: "RepBlaze audits and completes your full profile for stronger trust signals."
+  "Hours not listed": {
+    why: "Missing hours can send a ready-to-buy customer to a competitor who shows theirs.",
+    fix: "RepBlaze completes and maintains your full profile so nothing is missing.",
   },
-  "BEHIND COMPETITORS": {
-    why: "Nearby competitors have stronger review counts or ratings, which can pull customers toward them when they compare local options.",
-    fix: "RepBlaze tracks competitor activity and helps you close the gap with consistent review collection."
-  }
+  "No website linked": {
+    why: "No website link can signal lower credibility to customers comparing their options.",
+    fix: "RepBlaze links and optimizes your web presence across your Google profile.",
+  },
+  "No phone number": {
+    why: "Missing contact info means customers can't reach you quickly, and an incomplete profile looks less trustworthy.",
+    fix: "RepBlaze audits and completes your full profile for stronger trust signals.",
+  },
+  "Behind nearby competitors": {
+    why: "Nearby businesses in your category show stronger review numbers, which pulls customers toward them when they compare options side by side.",
+    fix: "RepBlaze tracks competitor activity and runs consistent review collection to close the gap.",
+  },
 };
 
-const okDetails = {
-  "STRONG RATING": "Your rating is excellent. We help you protect and grow it.",
-  "GOOD REVIEW VOLUME": "Strong review count. We help maintain momentum.",
-  "WEBSITE LINKED": "Good — your website is connected.",
-  "PHOTOS STRONG": "Great photo presence. We help keep it fresh.",
-  "AHEAD OF COMPETITORS": "You're outperforming nearby competitors. We help you defend that lead."
+const FINDING_OK = {
+  "Strong rating": "Your rating is excellent. The job is protecting and growing it.",
+  "Healthy review volume": "Strong review count. Consistency keeps the momentum.",
+  "Website linked": "Your website is connected — good.",
+  "Photo gallery active": "Solid photo presence. Fresh uploads keep it working.",
+  "Ahead of nearby competitors": "You're outperforming nearby businesses in your category. Worth defending.",
 };
 
-function ScoreRing({ score }) {
-  const r = 54;
-  const circ = 2 * Math.PI * r;
-  const animScore = useCountUp(score, 1400);
-  const dash = (animScore / 100) * circ;
-  const color = scoreColor(score);
+/* ---------- small components ---------- */
+
+function GradeStamp({ grade, score }) {
+  const color = gradeColor(grade);
   return (
-    <div style={{ position: "relative", display: "inline-block" }}>
-      <div style={{
-        position: "absolute", inset: -8, borderRadius: "50%",
-        background: `radial-gradient(circle, ${color}33 0%, transparent 70%)`,
-        animation: "pulse 2s ease-in-out infinite"
-      }} />
-      <svg width="160" height="160" viewBox="0 0 140 140">
-        <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <circle cx="70" cy="70" r={r} fill="none" stroke="#ffffff08" strokeWidth="12" />
-        <circle cx="70" cy="70" r={r} fill="none" stroke={color} strokeWidth="12"
-          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-          transform="rotate(-90 70 70)" filter="url(#glow)" />
-        <text x="70" y="62" textAnchor="middle" fill={color} fontSize="32"
-          fontFamily={MONO} fontWeight="bold" filter="url(#glow)">{animScore}</text>
-        <text x="70" y="80" textAnchor="middle" fill="#ffffff66" fontSize="9"
-          fontFamily={MONO} letterSpacing="3">OUT OF 100</text>
-        <text x="70" y="96" textAnchor="middle" fill={color} fontSize="9"
-          fontFamily={MONO} letterSpacing="2" filter="url(#glow)">{scoreLabel(score)}</text>
-      </svg>
+    <div
+      aria-label={"Grade " + grade + ", score " + score + " out of 100"}
+      style={{
+        width: 130, height: 130, border: "5px solid " + color, borderRadius: 10,
+        display: "flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", color, flexShrink: 0,
+        transform: "rotate(-8deg)", animation: "stampIn 0.55s cubic-bezier(0.2,0.8,0.2,1) both",
+        animationDelay: "0.35s", fontFamily: "var(--mono)",
+        boxShadow: "inset 0 0 0 2px " + color,
+      }}
+    >
+      <div style={{ fontSize: 64, fontWeight: 700, lineHeight: 1 }}>{grade}</div>
+      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.12em" }}>{score} / 100</div>
     </div>
   );
 }
 
-function StatBar({ label, value, max, color = "#ffd700", display, decimals = 0 }) {
+function MetricRow({ label, value, display, max, ok }) {
   const [pct, setPct] = useState(0);
   useEffect(() => {
-    const t = setTimeout(() => setPct(Math.min((value / max) * 100, 100)), 100);
+    const t = setTimeout(() => setPct(Math.min((value / max) * 100, 100)), 150);
     return () => clearTimeout(t);
   }, [value, max]);
+  const color = ok ? "var(--green)" : "var(--red)";
   return (
-    <div style={{ marginBottom: 18 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-        <span style={{ color: "#ffffff66", fontSize: 11, letterSpacing: 1.5, fontFamily: MONO }}>{label}</span>
-        <span style={{ color, fontSize: 13, fontFamily: MONO, fontWeight: "bold" }}>{display ?? <Counter to={value} decimals={decimals} />}</span>
+    <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 70px", gap: 14, alignItems: "center", padding: "11px 0", borderBottom: "1px solid var(--line)" }}>
+      <span className="eyebrow" style={{ color: "var(--muted)" }}>{label}</span>
+      <div style={{ background: "var(--paper)", borderRadius: 99, height: 8, overflow: "hidden" }}>
+        <div style={{ width: pct + "%", height: "100%", background: color, borderRadius: 99, transition: "width 1s cubic-bezier(0.2,0.8,0.2,1)" }} />
       </div>
-      <div style={{ background: "#ffffff0a", borderRadius: 99, height: 6, overflow: "hidden" }}>
-        <div style={{
-          width: `${pct}%`, height: "100%", borderRadius: 99,
-          background: `linear-gradient(90deg, ${color}88, ${color})`,
-          boxShadow: `0 0 10px ${color}66`,
-          transition: "width 1.3s cubic-bezier(0.16,1,0.3,1)"
-        }} />
-      </div>
+      <span style={{ fontFamily: "var(--mono)", fontWeight: 600, fontSize: 14, textAlign: "right", color: "var(--ink)" }}>{display}</span>
     </div>
   );
 }
 
-function IssueCard({ text, level }) {
-  const [open, setOpen] = useState(false);
-  const configs = {
-    critical: { color: "#ff4444", bg: "#ff444410", border: "#ff444440", icon: "⚠" },
-    warning: { color: "#ffd700", bg: "#ffd70010", border: "#ffd70040", icon: "◆" },
-    ok: { color: "#00ff88", bg: "#00ff8810", border: "#00ff8840", icon: "✓" }
-  };
-  const c = configs[level];
-  const detail = issueDetails[text];
-  const okDetail = okDetails[text];
-
+/* Signature element: named competitors, ranked, with YOU slotted in */
+function RankLadder({ rivals, youName }) {
+  if (!rivals || rivals.length < 2) return null;
+  const youIdx = rivals.findIndex((r) => r.you);
   return (
-    <div style={{
-      background: c.bg, border: `1px solid ${c.border}`,
-      borderRadius: 12, marginBottom: 10, overflow: "hidden",
-      transition: "all 0.3s"
-    }}>
-      <div
-        onClick={() => (detail || okDetail) && setOpen(!open)}
+    <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.1s" }}>
+      <div className="eyebrow" style={{ marginBottom: 4 }}>Local standings — same category, near you</div>
+      <div style={{ fontSize: 15, marginBottom: 18, color: "var(--muted)" }}>
+        Ranked by review count. You're <strong style={{ color: youIdx === 0 ? "var(--green)" : "var(--red)" }}>#{youIdx + 1} of {rivals.length}</strong>.
+      </div>
+      <div role="table" aria-label="Local competitor standings">
+        {rivals.map((r, i) => (
+          <div key={i} style={{
+            display: "grid", gridTemplateColumns: "34px 1fr 64px 78px", gap: 10, alignItems: "center",
+            padding: "10px 12px", borderRadius: 6, marginBottom: 4,
+            background: r.you ? "rgba(217,43,33,0.06)" : "transparent",
+            borderLeft: r.you ? "3px solid var(--red)" : "3px solid transparent",
+          }}>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700, color: r.you ? "var(--red)" : "var(--faint)" }}>#{i + 1}</span>
+            <span style={{ fontSize: 14, fontWeight: r.you ? 700 : 500, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {r.you ? youName + "  ← you" : r.name}
+            </span>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 13, textAlign: "right", color: "var(--muted)" }}>{r.rating ? r.rating.toFixed(1) + "★" : "—"}</span>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 13, fontWeight: 600, textAlign: "right", color: r.you ? "var(--red)" : "var(--ink)" }}>{r.reviews} rev</span>
+          </div>
+        ))}
+      </div>
+      {youIdx > 0 && (
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--line)", fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
+          The #1 business here has <strong style={{ color: "var(--ink)" }}>{rivals[0].reviews - rivals[youIdx].reviews} more reviews</strong> than you.
+          Closing that gap is the most direct lever RepBlaze pulls.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Finding({ text, level }) {
+  const [open, setOpen] = useState(false);
+  const cfg = {
+    critical: { color: "var(--red)", tag: "FAIL" },
+    warning: { color: "var(--amber)", tag: "FLAG" },
+    ok: { color: "var(--green)", tag: "PASS" },
+  }[level];
+  const detail = FINDING_DETAIL[text];
+  const okDetail = FINDING_OK[text];
+  const expandable = !!(detail || okDetail);
+  return (
+    <div style={{ borderBottom: "1px solid var(--line)" }}>
+      <button
+        onClick={() => expandable && setOpen(!open)}
+        aria-expanded={open}
         style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "14px 18px", cursor: detail || okDetail ? "pointer" : "default"
+          width: "100%", display: "flex", alignItems: "center", gap: 12,
+          padding: "13px 4px", background: "none", border: "none",
+          cursor: expandable ? "pointer" : "default", textAlign: "left",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ color: c.color, fontSize: 14 }}>{c.icon}</span>
-          <span style={{ color: c.color, fontSize: 11, fontFamily: MONO, letterSpacing: 1.5, fontWeight: "bold" }}>{text}</span>
-        </div>
-        {(detail || okDetail) && (
-          <span style={{ color: c.color, fontSize: 12, opacity: 0.6 }}>{open ? "▲" : "▼"}</span>
-        )}
-      </div>
+        <span style={{
+          fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
+          color: cfg.color, border: "1.5px solid " + cfg.color, borderRadius: 4,
+          padding: "2px 7px", flexShrink: 0,
+        }}>{cfg.tag}</span>
+        <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", flex: 1 }}>{text}</span>
+        {expandable && <span style={{ color: "var(--faint)", fontSize: 12 }}>{open ? "−" : "+"}</span>}
+      </button>
       {open && detail && (
-        <div style={{ padding: "0 18px 16px", borderTop: `1px solid ${c.border}` }}>
-          <div style={{ paddingTop: 14 }}>
-            <div style={{ fontSize: 12, color: "#ffffff88", lineHeight: 1.7, marginBottom: 10 }}>
-              <span style={{ color: "#ff4444", fontWeight: "bold" }}>WHY IT HURTS: </span>
-              {detail.why}
-            </div>
-            <div style={{ fontSize: 12, color: "#ffffff88", lineHeight: 1.7 }}>
-              <span style={{ color: "#00ff88", fontWeight: "bold" }}>HOW WE FIX IT: </span>
-              {detail.fix}
-            </div>
-          </div>
+        <div style={{ padding: "0 4px 16px 52px", fontSize: 14, lineHeight: 1.65, color: "var(--muted)" }}>
+          <p style={{ margin: "0 0 8px" }}><strong style={{ color: "var(--red)" }}>Why it costs you: </strong>{detail.why}</p>
+          <p style={{ margin: 0 }}><strong style={{ color: "var(--green)" }}>How we fix it: </strong>{detail.fix}</p>
         </div>
       )}
       {open && okDetail && (
-        <div style={{ padding: "0 18px 16px", borderTop: `1px solid ${c.border}` }}>
-          <div style={{ paddingTop: 14, fontSize: 12, color: "#ffffff88", lineHeight: 1.7 }}>{okDetail}</div>
-        </div>
+        <div style={{ padding: "0 4px 16px 52px", fontSize: 14, lineHeight: 1.65, color: "var(--muted)" }}>{okDetail}</div>
       )}
     </div>
   );
 }
 
-function GlassCard({ children, style = {}, glow = false, className = "", onClick }) {
-  return (
-    <div className={className} onClick={onClick} style={{
-      background: "rgba(255,255,255,0.03)",
-      border: "1px solid rgba(255,255,255,0.08)",
-      borderRadius: 16, backdropFilter: "blur(20px)", padding: 28,
-      boxShadow: glow
-        ? "0 0 40px rgba(255,215,0,0.08), 0 20px 60px rgba(0,0,0,0.4)"
-        : "0 20px 60px rgba(0,0,0,0.3)",
-      ...style
-    }}>
-      {children}
-    </div>
-  );
-}
-
-// REAL competitor comparison — built from actual nearby Places data
-function CompetitorBox({ comp }) {
-  const [open, setOpen] = useState(false);
-  if (!comp || comp.count === 0) return null;
-  const { avgRating, avgReviews, count, yourRating, yourReviews, pressure } = comp;
-  const pressureColor = pressure === "HIGH" ? "#ff4444" : pressure === "MODERATE" ? "#ffd700" : "#00ff88";
-  const reviewGap = avgReviews - yourReviews;
-  const ratingAhead = Math.round(yourRating * 10) >= Math.round(avgRating * 10);
-  return (
-    <GlassCard className="reveal hover-lift" style={{ marginBottom: 20, border: "1px solid rgba(0,170,255,0.2)", cursor: "pointer", animationDelay: "0.1s" }} onClick={() => setOpen(!open)}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontSize: 10, letterSpacing: 3, color: "#00aaff", fontFamily: MONO }}>COMPETITOR PRESSURE</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: "bold", color: pressureColor, letterSpacing: 2, padding: "4px 12px", borderRadius: 99, background: `${pressureColor}15`, border: `1px solid ${pressureColor}40`, fontFamily: MONO }}>{pressure}</div>
-          <span style={{ color: "#00aaff", fontSize: 12, opacity: 0.6 }}>{open ? "▲" : "▼"}</span>
-        </div>
-      </div>
-      <div style={{ fontSize: 11, color: "#ffffff44", marginBottom: 16, letterSpacing: 0.5 }}>
-        Compared against {count} nearby business{count > 1 ? "es" : ""} in the same category
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-        <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 14 }}>
-          <div style={{ fontSize: 9, color: "#ffffff44", letterSpacing: 1, marginBottom: 8, fontFamily: MONO }}>AVG RATING</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 24, fontWeight: "bold", fontFamily: MONO, color: ratingAhead ? "#00ff88" : "#ff4444" }}><Counter to={yourRating} decimals={1} /></span>
-            <span style={{ fontSize: 11, color: "#ffffff44" }}>you</span>
-            <span style={{ fontSize: 15, color: "#ffffff66", marginLeft: "auto", fontFamily: MONO }}>{avgRating.toFixed(1)}</span>
-            <span style={{ fontSize: 11, color: "#ffffff44" }}>them</span>
-          </div>
-        </div>
-        <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 14 }}>
-          <div style={{ fontSize: 9, color: "#ffffff44", letterSpacing: 1, marginBottom: 8, fontFamily: MONO }}>AVG REVIEWS</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 24, fontWeight: "bold", fontFamily: MONO, color: yourReviews >= avgReviews ? "#00ff88" : "#ff4444" }}><Counter to={yourReviews} /></span>
-            <span style={{ fontSize: 11, color: "#ffffff44" }}>you</span>
-            <span style={{ fontSize: 15, color: "#ffffff66", marginLeft: "auto", fontFamily: MONO }}>{avgReviews}</span>
-            <span style={{ fontSize: 11, color: "#ffffff44" }}>them</span>
-          </div>
-        </div>
-      </div>
-      {open && (
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.08)", fontSize: 12, color: "#ffffff88", lineHeight: 1.7 }}>
-          {reviewGap > 0
-            ? `You're behind by about ${reviewGap} reviews on average. Closing that gap is the fastest lever to look more trusted in local search — RepBlaze automates review collection to get you there.`
-            : `You're matching or beating nearby competitors on reviews. RepBlaze helps you defend that lead with consistent collection and fast responses.`}
-        </div>
-      )}
-    </GlassCard>
-  );
-}
-
-// Action Plan — ranked, generated from REAL gaps found, items expandable
 function ActionPlan({ plan }) {
   const [openIdx, setOpenIdx] = useState(0);
   if (!plan || plan.length === 0) return null;
-  const impactColor = { HIGH: "#ff4444", MEDIUM: "#ffd700", LOW: "#00aaff" };
+  const impactColor = { HIGH: "var(--red)", MEDIUM: "var(--amber)", LOW: "var(--blue)" };
   return (
-    <GlassCard className="reveal" style={{ marginBottom: 20, animationDelay: "0.2s" }}>
-      <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffd700", marginBottom: 6, fontFamily: MONO }}>REPBLAZE ACTION PLAN</div>
-      <div style={{ fontSize: 11, color: "#ffffff44", marginBottom: 20, letterSpacing: 0.5 }}>Ranked by estimated impact · tap to expand</div>
+    <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.2s" }}>
+      <div className="eyebrow" style={{ marginBottom: 4 }}>RepBlaze action plan</div>
+      <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 14 }}>Ranked by estimated impact. Tap any step.</div>
       {plan.map((p, i) => {
         const open = openIdx === i;
         return (
-          <div key={i} onClick={() => setOpenIdx(open ? -1 : i)}
-            style={{ display: "flex", gap: 14, marginBottom: 12, paddingBottom: 12, borderBottom: i < plan.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none", cursor: "pointer", borderRadius: 10, padding: 10, background: open ? "rgba(255,255,255,0.02)" : "transparent", transition: "background 0.25s" }}>
-            <div style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", fontSize: 13, fontFamily: MONO }}>{i + 1}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: open ? 8 : 0, flexWrap: "wrap", gap: 6 }}>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{p.title}</span>
-                <span style={{ fontSize: 9, fontWeight: "bold", letterSpacing: 1.5, color: impactColor[p.impact], padding: "3px 10px", borderRadius: 99, background: `${impactColor[p.impact]}15`, border: `1px solid ${impactColor[p.impact]}40`, fontFamily: MONO }}>{p.impact} IMPACT</span>
+          <div key={i} style={{ borderBottom: i < plan.length - 1 ? "1px solid var(--line)" : "none" }}>
+            <button onClick={() => setOpenIdx(open ? -1 : i)} aria-expanded={open}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 4px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
+              <span style={{ fontFamily: "var(--mono)", fontWeight: 700, fontSize: 14, color: "var(--faint)", width: 22, flexShrink: 0 }}>{i + 1}.</span>
+              <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink)", flex: 1 }}>{p.title}</span>
+              <span style={{ fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: impactColor[p.impact], flexShrink: 0 }}>{p.impact}</span>
+            </button>
+            {open && (
+              <div style={{ padding: "0 4px 16px 38px", fontSize: 14, lineHeight: 1.65, color: "var(--muted)" }}>
+                <p style={{ margin: "0 0 6px" }}>{p.why}</p>
+                <p style={{ margin: 0, color: "var(--green)", fontWeight: 500 }}>→ {p.action}</p>
               </div>
-              {open && (
-                <div style={{ animation: "reveal 0.3s ease both" }}>
-                  <div style={{ fontSize: 12, color: "#ffffff77", lineHeight: 1.6, marginBottom: 6 }}>{p.why}</div>
-                  <div style={{ fontSize: 12, color: "#00ff88cc", lineHeight: 1.6 }}><span style={{ fontWeight: "bold" }}>→ </span>{p.action}</div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         );
       })}
-    </GlassCard>
+    </section>
   );
 }
 
-// Lead capture modal — stores locally, ready to wire to backend
 function LeadModal({ open, onClose, businessName, onSubmit }) {
-  const [form, setForm] = useState({ name: "", business: businessName || "", phone: "", email: "", notes: "" });
+  const [form, setForm] = useState({ name: "", business: "", phone: "", email: "", notes: "" });
   const [sent, setSent] = useState(false);
+  const [err, setErr] = useState("");
 
-  useEffect(() => { setForm(f => ({ ...f, business: businessName || "" })); }, [businessName]);
+  useEffect(() => { setForm((f) => ({ ...f, business: businessName || f.business })); }, [businessName]);
+  useEffect(() => { if (open) { setSent(false); setErr(""); } }, [open]);
 
   if (!open) return null;
 
   const submit = () => {
-    if (!form.name || (!form.phone && !form.email)) return;
+    if (!form.name.trim()) { setErr("Enter your name so we know who to ask for."); return; }
+    if (!form.phone.trim() && !form.email.trim()) { setErr("Add a phone or email so we can reach you."); return; }
     onSubmit(form);
     setSent(true);
   };
 
+  const fields = [
+    { k: "name", label: "Your name", ph: "Jane Smith" },
+    { k: "business", label: "Business", ph: "Business name" },
+    { k: "phone", label: "Phone", ph: "(816) 000-0000" },
+    { k: "email", label: "Email", ph: "you@email.com" },
+    { k: "notes", label: "Notes (optional)", ph: "Anything we should know?" },
+  ];
+
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 440 }}>
-        <GlassCard glow style={{ border: "1px solid rgba(255,215,0,0.25)" }}>
-          {!sent ? (
-            <>
-              <div style={{ fontSize: 16, fontWeight: "bold", color: "#fff", marginBottom: 6 }}>Activate RepBlaze</div>
-              <div style={{ fontSize: 12, color: "#ffffff66", marginBottom: 22, lineHeight: 1.6 }}>Drop your info and we'll reach out with your full plan and pricing.</div>
-              {[
-                { k: "name", label: "YOUR NAME", ph: "Jane Smith" },
-                { k: "business", label: "BUSINESS", ph: "Business name" },
-                { k: "phone", label: "PHONE", ph: "(816) 000-0000" },
-                { k: "email", label: "EMAIL", ph: "you@email.com" },
-                { k: "notes", label: "NOTES (OPTIONAL)", ph: "Anything we should know?" }
-              ].map(f => (
-                <div key={f.k} style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 9, color: "#ffffff44", letterSpacing: 2, marginBottom: 6 }}>{f.label}</div>
-                  <input value={form[f.k]} onChange={e => setForm({ ...form, [f.k]: e.target.value })} placeholder={f.ph}
-                    style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", padding: "12px 14px", fontSize: 14, fontFamily: FONT, outline: "none" }} />
-                </div>
-              ))}
-              <button onClick={submit} style={{ width: "100%", marginTop: 8, background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", border: "none", borderRadius: 8, padding: "14px", fontFamily: MONO, fontWeight: "bold", fontSize: 12, letterSpacing: 2, cursor: "pointer", boxShadow: "0 0 30px rgba(255,215,0,0.3)" }}>SEND IT →</button>
-              <div style={{ fontSize: 10, color: "#ffffff33", textAlign: "center", marginTop: 12 }}>Name + phone or email required</div>
-            </>
-          ) : (
-            <div style={{ textAlign: "center", padding: "20px 0" }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🔥</div>
-              <div style={{ fontSize: 16, fontWeight: "bold", color: "#00ff88", marginBottom: 8 }}>You're in.</div>
-              <div style={{ fontSize: 12, color: "#ffffff66", marginBottom: 24, lineHeight: 1.6 }}>We've got your info and we'll be in touch fast.</div>
-              <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "12px 28px", fontFamily: MONO, fontWeight: "bold", fontSize: 11, letterSpacing: 2, cursor: "pointer" }}>CLOSE</button>
+    <div onClick={onClose} role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, background: "rgba(23,19,14,0.55)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "100%", maxWidth: 420, boxShadow: "0 24px 60px rgba(0,0,0,0.25)" }}>
+        {!sent ? (
+          <>
+            <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 4 }}>Get your fix plan</div>
+            <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 18, lineHeight: 1.55 }}>
+              Leave your info and we'll reach out with a plan and pricing for {form.business || "your business"}.
             </div>
-          )}
-        </GlassCard>
+            {fields.map((f) => (
+              <div key={f.k} style={{ marginBottom: 12 }}>
+                <div className="eyebrow" style={{ fontSize: 10, marginBottom: 5 }}>{f.label}</div>
+                <input className="text-input" value={form[f.k]} placeholder={f.ph}
+                  onChange={(e) => setForm({ ...form, [f.k]: e.target.value })}
+                  onKeyDown={(e) => e.key === "Enter" && submit()} />
+              </div>
+            ))}
+            {err && <div style={{ color: "var(--red)", fontSize: 13, marginBottom: 10 }}>{err}</div>}
+            <button className="btn-primary" style={{ width: "100%", marginTop: 4 }} onClick={submit}>Send it</button>
+          </>
+        ) : (
+          <div style={{ textAlign: "center", padding: "16px 0" }}>
+            <div style={{ fontFamily: "var(--mono)", color: "var(--green)", fontWeight: 700, fontSize: 15, marginBottom: 8 }}>✓ Sent</div>
+            <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 20, lineHeight: 1.6 }}>We've got your info. Expect to hear from RepBlaze fast.</div>
+            <button className="btn-ghost" onClick={onClose}>Close</button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
+/* ============================================================
+   APP
+   ============================================================ */
 
 export default function App() {
   const [query, setQuery] = useState("");
@@ -352,9 +297,8 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [mapsReady, setMapsReady] = useState(false);
-  const [scanText, setScanText] = useState("AUDIT →");
   const [modalOpen, setModalOpen] = useState(false);
-  const [leads, setLeads] = useState([]);
+  const reportRef = useRef(null);
 
   useEffect(() => {
     const check = setInterval(() => {
@@ -367,30 +311,24 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!loading) { setScanText("AUDIT →"); return; }
-    const steps = ["LOCATING...", "SCANNING...", "ANALYZING...", "COMPARING...", "SCORING..."];
-    let i = 0;
-    const interval = setInterval(() => {
-      setScanText(steps[i % steps.length]);
-      i++;
-    }, 600);
-    return () => clearInterval(interval);
-  }, [loading]);
+    if (result && reportRef.current) reportRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [result]);
 
   const handleLead = (form) => {
-    const lead = { ...form, ts: new Date().toISOString() };
-    setLeads(prev => [...prev, lead]);
-    // TODO[BACKEND]: POST this lead to your store. Pick one:
-    //   • Google Sheets → Apps Script web app URL (fetch POST)
-    //   • Zapier        → Catch Hook webhook URL
-    //   • Supabase      → insert into leads table
-    //   • Airtable      → REST API
-    // Example: fetch("YOUR_WEBHOOK_URL", { method: "POST", body: JSON.stringify(lead) });
-    console.log("NEW LEAD (wire me to backend):", lead);
+    const lead = { ...form, source: "audit-tool", auditedBusiness: result?.name || "", score: result?.score ?? "", ts: new Date().toISOString() };
+    // Backup first — a lead is never lost even if the endpoint is down.
+    try {
+      const stash = JSON.parse(localStorage.getItem("repblaze_leads") || "[]");
+      stash.push(lead);
+      localStorage.setItem("repblaze_leads", JSON.stringify(stash));
+    } catch { /* storage full/blocked — endpoint POST below still fires */ }
+    if (LEAD_ENDPOINT) {
+      fetch(LEAD_ENDPOINT, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(lead) }).catch(() => {});
+    }
   };
 
   const runAudit = async () => {
-    if (!query.trim() || !mapsReady) return;
+    if (!query.trim() || !mapsReady || loading) return;
     setLoading(true);
     setError("");
     setResult(null);
@@ -398,13 +336,13 @@ export default function App() {
     try {
       const { places } = await window.google.maps.places.Place.searchByText({
         textQuery: query,
-        fields: ["id", "displayName", "formattedAddress", "rating",
-          "userRatingCount", "regularOpeningHours", "photos",
-          "websiteURI", "nationalPhoneNumber", "location", "primaryType", "types"],
+        fields: ["id", "displayName", "formattedAddress", "rating", "userRatingCount",
+          "regularOpeningHours", "photos", "websiteURI", "nationalPhoneNumber",
+          "location", "primaryType", "primaryTypeDisplayName", "types", "reviews", "businessStatus"],
       });
 
       if (!places || places.length === 0) {
-        setError("No business found. Try adding city/state.");
+        setError("No business found. Try adding the city and state.");
         setLoading(false);
         return;
       }
@@ -413,267 +351,246 @@ export default function App() {
       const rating = place.rating || 0;
       const reviewCount = place.userRatingCount || 0;
       const photoCount = place.photos ? place.photos.length : 0;
+      const photoCapped = photoCount >= 10; // Places API returns at most 10
       const hasHours = !!place.regularOpeningHours;
       const hasWebsite = !!place.websiteURI;
       const hasPhone = !!place.nationalPhoneNumber;
 
-      // ---- REAL competitor pull: nearby businesses of same type ----
-      let comp = null;
+      // Newest review visible among the profile's top reviews (API returns up to 5).
+      let lastReviewDays = null;
+      if (place.reviews && place.reviews.length) {
+        const times = place.reviews
+          .map((r) => (r.publishTime ? new Date(r.publishTime) : null))
+          .filter((d) => d && !isNaN(d));
+        if (times.length) lastReviewDays = daysAgo(new Date(Math.max(...times.map((d) => d.getTime()))));
+      }
+
+      // ---- Named competitors: same category, nearby ----
+      let rivals = null;
       try {
-        const typeKeyword = place.primaryType || (place.types && place.types[0]) || "";
-        if (place.location && typeKeyword) {
+        const typeKeyword = place.primaryTypeDisplayName || (place.primaryType || "").replace(/_/g, " ");
+        if (typeKeyword && place.formattedAddress) {
           const { places: nearby } = await window.google.maps.places.Place.searchByText({
-            textQuery: `${typeKeyword.replace(/_/g, " ")} near ${place.formattedAddress}`,
-            fields: ["displayName", "rating", "userRatingCount"],
+            textQuery: typeKeyword + " near " + place.formattedAddress,
+            fields: ["id", "displayName", "rating", "userRatingCount"],
             maxResultCount: 8,
           });
-          const others = (nearby || []).filter(p => p.displayName !== place.displayName && p.userRatingCount > 0);
+          const others = (nearby || [])
+            .filter((p) => p.id !== place.id && (p.userRatingCount || 0) > 0)
+            .slice(0, 5)
+            .map((p) => ({ name: p.displayName, rating: p.rating || 0, reviews: p.userRatingCount || 0, you: false }));
           if (others.length) {
-            const avgRating = others.reduce((s, p) => s + (p.rating || 0), 0) / others.length;
-            const avgReviews = Math.round(others.reduce((s, p) => s + (p.userRatingCount || 0), 0) / others.length);
-            let pressure = "LOW";
-            const behind = (rating < avgRating ? 1 : 0) + (reviewCount < avgReviews ? 1 : 0);
-            if (behind === 2) pressure = "HIGH";
-            else if (behind === 1) pressure = "MODERATE";
-            comp = { avgRating, avgReviews, count: others.length, yourRating: rating, yourReviews: reviewCount, pressure };
+            rivals = [...others, { name: place.displayName, rating, reviews: reviewCount, you: true }]
+              .sort((a, b) => b.reviews - a.reviews);
           }
         }
-      } catch (e) { /* competitor pull optional — never blocks the audit */ }
+      } catch { /* competitor pull is optional — never blocks the audit */ }
 
+      // ---- Score (hard data only, totals 100) ----
       let score = 0;
       const issues = [];
 
-      if (rating >= 4.5) score += 30;
+      if (reviewCount === 0) {
+        issues.push({ text: "No reviews yet", level: "critical" });
+      } else if (rating >= 4.5) score += 30;
       else if (rating >= 4.0) score += 22;
       else if (rating >= 3.5) score += 14;
-      else { score += 5; issues.push({ text: "LOW RATING", level: "critical" }); }
+      else { score += 5; issues.push({ text: "Low star rating", level: "critical" }); }
 
       if (reviewCount >= 100) score += 25;
       else if (reviewCount >= 50) score += 18;
       else if (reviewCount >= 20) score += 12;
       else if (reviewCount >= 5) score += 6;
-      else issues.push({ text: "FEW REVIEWS", level: "critical" });
+      else if (reviewCount > 0) issues.push({ text: "Thin review count", level: "critical" });
 
       if (photoCount >= 10) score += 15;
       else if (photoCount >= 5) score += 10;
       else if (photoCount >= 1) score += 5;
-      else issues.push({ text: "NO PHOTOS", level: "critical" });
+      else issues.push({ text: "No photos", level: "critical" });
 
-      if (hasHours) score += 10;
-      else issues.push({ text: "NO HOURS LISTED", level: "warning" });
+      if (hasHours) score += 10; else issues.push({ text: "Hours not listed", level: "warning" });
+      if (hasWebsite) score += 10; else issues.push({ text: "No website linked", level: "warning" });
+      if (hasPhone) score += 10; else issues.push({ text: "No phone number", level: "warning" });
 
-      if (hasWebsite) score += 10;
-      else issues.push({ text: "NO WEBSITE LINKED", level: "warning" });
-
-      if (hasPhone) score += 10;
-      else issues.push({ text: "NO PHONE NUMBER", level: "warning" });
-
-      // competitor-based finding (real)
-      if (comp) {
-        if (comp.pressure === "HIGH" || comp.yourReviews < comp.avgReviews) {
-          issues.push({ text: "BEHIND COMPETITORS", level: comp.pressure === "HIGH" ? "critical" : "warning" });
-        } else {
-          issues.push({ text: "AHEAD OF COMPETITORS", level: "ok" });
-        }
+      if (lastReviewDays !== null && lastReviewDays > 180) {
+        issues.push({ text: "Reviews going stale", level: "warning" });
       }
 
-      if (rating >= 4.5) issues.push({ text: "STRONG RATING", level: "ok" });
-      if (reviewCount >= 50) issues.push({ text: "GOOD REVIEW VOLUME", level: "ok" });
-      if (hasWebsite) issues.push({ text: "WEBSITE LINKED", level: "ok" });
-      if (photoCount >= 10) issues.push({ text: "PHOTOS STRONG", level: "ok" });
+      const youIdx = rivals ? rivals.findIndex((r) => r.you) : -1;
+      if (rivals) {
+        if (youIdx === 0) issues.push({ text: "Ahead of nearby competitors", level: "ok" });
+        else issues.push({ text: "Behind nearby competitors", level: youIdx >= Math.ceil(rivals.length / 2) ? "critical" : "warning" });
+      }
 
-      // ---- Build ranked Action Plan from REAL gaps ----
+      if (reviewCount > 0 && rating >= 4.5) issues.push({ text: "Strong rating", level: "ok" });
+      if (reviewCount >= 50) issues.push({ text: "Healthy review volume", level: "ok" });
+      if (hasWebsite) issues.push({ text: "Website linked", level: "ok" });
+      if (photoCount >= 10) issues.push({ text: "Photo gallery active", level: "ok" });
+
+      // ---- Action plan from real gaps ----
       const plan = [];
-      if (comp && comp.yourReviews < comp.avgReviews) {
-        plan.push({ title: "Increase review velocity", impact: "HIGH", why: `Nearby competitors average ${comp.avgReviews} reviews vs your ${reviewCount}. Closing this gap can strengthen local trust.`, action: "Send automated review requests by text after every completed job or sale." });
+      if (rivals && youIdx > 0) {
+        const gap = rivals[0].reviews - reviewCount;
+        plan.push({ title: "Close the review gap", impact: "HIGH", why: "The top business near you has " + gap + " more reviews. Review count is the number customers compare first.", action: "Automated review requests by text after every completed sale or job." });
+      } else if (reviewCount < 20) {
+        plan.push({ title: "Build your review base", impact: "HIGH", why: "A thin review count limits how trusted your profile looks to new customers.", action: "Start a consistent review-request flow to steadily grow the count." });
       }
-      if (reviewCount < 20 && !(comp && comp.yourReviews < comp.avgReviews)) {
-        plan.push({ title: "Build your review base", impact: "HIGH", why: "A thin review count limits how trusted your profile looks to new customers.", action: "Start a consistent review request flow to steadily grow your count." });
-      }
-      if (rating < 4.0) {
+      if (reviewCount > 0 && rating < 4.0) {
         plan.push({ title: "Lift your star rating", impact: "HIGH", why: "A rating under 4.0 can turn customers away before they visit.", action: "Respond to every review and route happy customers to leave feedback." });
       }
-      if (photoCount < 5) {
-        plan.push({ title: "Add profile photos", impact: "MEDIUM", why: "Listings with more photos tend to get more clicks and direction requests.", action: "Upload fresh photos of your work, team, and location monthly." });
+      if (lastReviewDays !== null && lastReviewDays > 180) {
+        plan.push({ title: "Get fresh reviews flowing", impact: "HIGH", why: "The newest review visible on your profile is about " + Math.round(lastReviewDays / 30) + " months old. A quiet profile reads as a quiet business.", action: "Restart review collection immediately — recency matters as much as volume." });
       }
+      if (photoCount < 5) plan.push({ title: "Add profile photos", impact: "MEDIUM", why: "Listings with more photos tend to get more clicks and direction requests.", action: "Upload fresh photos of your work, team, and location monthly." });
       if (!hasHours) plan.push({ title: "Complete your hours", impact: "MEDIUM", why: "Missing hours can send customers to a competitor.", action: "Add full business hours, including holiday hours." });
       if (!hasWebsite) plan.push({ title: "Link your website", impact: "MEDIUM", why: "No website link can lower perceived credibility.", action: "Add your website or a simple landing page to your profile." });
       if (!hasPhone) plan.push({ title: "Add a phone number", impact: "MEDIUM", why: "Customers need a fast way to reach you.", action: "Add a primary phone number to your profile." });
-      if (plan.length === 0) {
-        plan.push({ title: "Defend your lead", impact: "LOW", why: "Your profile is strong. Consistency keeps you ahead.", action: "Keep collecting reviews and posting updates to protect your ranking." });
-      }
+      if (plan.length === 0) plan.push({ title: "Defend your lead", impact: "LOW", why: "Your profile is strong. Consistency keeps you ahead.", action: "Keep collecting reviews and posting updates to protect your position." });
       const order = { HIGH: 0, MEDIUM: 1, LOW: 2 };
       plan.sort((a, b) => order[a.impact] - order[b.impact]);
-      const topPlan = plan.slice(0, 5);
 
-      setResult({ name: place.displayName, address: place.formattedAddress, rating, reviewCount, photoCount, score, issues, hasHours, hasWebsite, hasPhone, comp, plan: topPlan });
+      const s = Math.min(score, 100);
+      setResult({
+        name: place.displayName, address: place.formattedAddress,
+        status: place.businessStatus || "OPERATIONAL",
+        rating, reviewCount, photoCount, photoCapped,
+        hasHours, hasWebsite, hasPhone, lastReviewDays,
+        score: s, grade: gradeOf(s), issues, plan: plan.slice(0, 5), rivals,
+      });
     } catch (e) {
-      setError("Error: " + e.message);
+      setError("Something went wrong running the audit: " + e.message);
     }
     setLoading(false);
   };
 
+  const completeness = result
+    ? [result.reviewCount > 0, result.photoCount > 0, result.hasHours, result.hasWebsite, result.hasPhone].filter(Boolean).length
+    : 0;
+
   return (
-    <div style={{ minHeight: "100vh", background: "#080810", color: "#e0e0e0", fontFamily: FONT, position: "relative", overflow: "hidden" }}>
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.05)} }
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-        @keyframes reveal { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-        @keyframes glowPulse { 0%,100%{box-shadow:0 0 20px rgba(255,215,0,0.15)} 50%{box-shadow:0 0 35px rgba(255,215,0,0.3)} }
-        input::placeholder{color:#ffffff33}
-        input:focus{border-color:rgba(255,215,0,0.5) !important; box-shadow:0 0 20px rgba(255,215,0,0.15) !important}
-        .reveal{animation:reveal 0.6s cubic-bezier(0.16,1,0.3,1) both}
-        .hover-lift{transition:transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s, border-color 0.25s}
-        .hover-lift:hover{transform:translateY(-3px); box-shadow:0 12px 40px rgba(0,0,0,0.5), 0 0 30px rgba(255,215,0,0.08); border-color:rgba(255,215,0,0.2)}
-        .glow-btn{transition:transform 0.2s, box-shadow 0.3s}
-        .glow-btn:hover{transform:translateY(-2px) scale(1.02); box-shadow:0 0 50px rgba(255,215,0,0.5) !important}
-        .glow-btn:active{transform:scale(0.98)}
-        .audit-btn:hover:not(:disabled){transform:scale(1.03); box-shadow:0 0 40px rgba(255,215,0,0.5) !important}
-        @media print {
-          body { background: #fff !important; }
-          .no-print { display: none !important; }
-          .print-only { display: block !important; }
-          .print-card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd !important; background: #fff !important; }
-          * { color: #111 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }
-      `}</style>
-
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}>
-        <div style={{ position: "absolute", width: 600, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,215,0,0.06) 0%, transparent 70%)", top: -200, right: -100, animation: "float 8s ease-in-out infinite" }} />
-        <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(170,59,255,0.05) 0%, transparent 70%)", bottom: -100, left: -100, animation: "float 10s ease-in-out infinite reverse" }} />
-        <div style={{ position: "absolute", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,255,136,0.04) 0%, transparent 70%)", top: "40%", left: "30%", animation: "float 12s ease-in-out infinite" }} />
-      </div>
-
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, backgroundImage: "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
-
-      <div style={{ position: "relative", zIndex: 1, padding: "28px 40px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", backdropFilter: "blur(10px)", background: "rgba(8,8,16,0.8)" }}>
-        <div>
-          <div style={{ fontSize: 24, fontWeight: "bold", letterSpacing: 4, fontFamily: MONO, background: "linear-gradient(135deg, #ffd700, #ff8c00)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>REPBLAZE</div>
-          <div style={{ fontSize: 11, color: "#ffffffaa", letterSpacing: 3, marginTop: 4, fontFamily: MONO }}>GOOGLE BUSINESS PROFILE INTELLIGENCE</div>
-        </div>
-        {!mapsReady && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#ffd700", boxShadow: "0 0 10px #ffd700", animation: "pulse 2s infinite" }} />
-            <span style={{ fontSize: 9, color: "#ffffff44", letterSpacing: 2 }}>LOADING</span>
+    <div style={{ minHeight: "100vh" }}>
+      {/* header */}
+      <header className="no-print" style={{ borderBottom: "2px solid var(--ink)", background: "var(--surface)" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", padding: "18px 20px", display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+          <div style={{ fontFamily: "var(--sans)", fontWeight: 900, fontSize: 20, letterSpacing: "-0.01em" }}>
+            REP<span style={{ color: "var(--red)" }}>BLAZE</span>
           </div>
-        )}
-      </div>
-
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 740, margin: "60px auto 0", padding: "0 24px 60px" }}>
-        <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <h1 style={{ fontSize: 42, fontWeight: "bold", margin: "0 0 12px", background: "linear-gradient(135deg, #fff 0%, #ffffff88 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", letterSpacing: -1, lineHeight: 1.1 }}>
-            Is Your Google Profile<br />
-            <span style={{ background: "linear-gradient(135deg, #ffd700, #ff8c00)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Costing You Customers?</span>
-          </h1>
-          <p style={{ color: "#ffffff44", fontSize: 13, letterSpacing: 1 }}>Free instant audit · No signup · Real data from Google</p>
+          <div className="eyebrow" style={{ fontSize: 10 }}>
+            {mapsReady ? "Profile audit" : <span style={{ animation: "blink 1.2s infinite" }}>Loading…</span>}
+          </div>
         </div>
+      </header>
 
-        <GlassCard glow className="no-print" style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, color: "#ffffff44", letterSpacing: 2, marginBottom: 12 }}>BUSINESS NAME + CITY / STATE</div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <input
+      <main style={{ maxWidth: 720, margin: "0 auto", padding: "40px 20px 80px" }}>
+        {/* hero */}
+        <section className="no-print" style={{ marginBottom: 28 }}>
+          <h1 style={{ fontSize: "clamp(30px, 6vw, 44px)", fontWeight: 900, lineHeight: 1.08, letterSpacing: "-0.02em", margin: "0 0 10px" }}>
+            Your Google profile,<br />graded like an <span style={{ color: "var(--red)" }}>inspection.</span>
+          </h1>
+          <p style={{ fontSize: 16, color: "var(--muted)", margin: 0, maxWidth: 480, lineHeight: 1.6 }}>
+            Free instant audit of any local business — real data from Google, ranked against the competitors near you. No signup.
+          </p>
+        </section>
+
+        {/* search */}
+        <section className="card no-print" style={{ marginBottom: 24 }}>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>Business name + city / state</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <input className="text-input" style={{ flex: 1, minWidth: 200 }}
               value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && runAudit()}
-              placeholder="Search any local business…"
-              style={{ flex: 1, minWidth: 200, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#fff", padding: "16px 18px", fontSize: 15, fontFamily: FONT, outline: "none", transition: "all 0.3s" }}
-            />
-            <button onClick={runAudit} disabled={loading || !mapsReady} className="audit-btn"
-              style={{ background: mapsReady ? "linear-gradient(135deg, #ffd700, #ff8c00)" : "rgba(255,255,255,0.1)", color: mapsReady ? "#0a0a0f" : "#ffffff44", border: "none", borderRadius: 10, padding: "16px 28px", fontFamily: MONO, fontWeight: "bold", fontSize: 11, letterSpacing: 2, cursor: mapsReady ? "pointer" : "not-allowed", whiteSpace: "nowrap", minWidth: 130, boxShadow: mapsReady ? "0 0 30px rgba(255,215,0,0.3)" : "none", transition: "all 0.3s" }}>
-              {scanText}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && runAudit()}
+              placeholder="e.g. Dream of Sneakerz, St. Joseph MO"
+              aria-label="Business name and city" />
+            <button className="btn-primary" onClick={runAudit} disabled={loading || !mapsReady}>
+              {loading ? "Auditing…" : "Run audit"}
             </button>
           </div>
-          {error && <div style={{ marginTop: 12, color: "#ff4444", fontSize: 12, letterSpacing: 1 }}>⚠ {error}</div>}
-          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 16 }}>
-            {["Free instant scan", "No signup", "Real Google data", "Built for local"].map(t => (
-              <span key={t} style={{ fontSize: 10, color: "#ffffff44", letterSpacing: 1, display: "flex", alignItems: "center", gap: 5 }}><span style={{ color: "#00ff88" }}>✓</span>{t}</span>
-            ))}
-          </div>
-        </GlassCard>
+          {error && <div style={{ marginTop: 10, color: "var(--red)", fontSize: 14 }}>{error}</div>}
+        </section>
 
         {loading && (
-          <GlassCard style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ fontSize: 11, color: "#ffd700", letterSpacing: 3, marginBottom: 16 }}>{scanText}</div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 6 }}>
-              {[0,1,2,3,4].map(i => (
-                <div key={i} style={{ width: 4, height: 20, borderRadius: 2, background: "linear-gradient(#ffd700, #ff8c00)", animation: `pulse 1s ease-in-out ${i * 0.15}s infinite`, boxShadow: "0 0 8px rgba(255,215,0,0.5)" }} />
-              ))}
+          <div className="card" style={{ textAlign: "center", fontFamily: "var(--mono)", fontSize: 13, color: "var(--muted)" }}>
+            <span style={{ animation: "blink 1s infinite" }}>Pulling live Google data…</span>
+          </div>
+        )}
+
+        {/* ============ REPORT ============ */}
+        {result && (
+          <div ref={reportRef} style={{ scrollMarginTop: 20 }}>
+            {/* print header */}
+            <div className="print-only" style={{ marginBottom: 20, paddingBottom: 12, borderBottom: "3px solid var(--red)" }}>
+              <div style={{ fontWeight: 900, fontSize: 20 }}>REPBLAZE — PROFILE AUDIT REPORT</div>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 12, marginTop: 4 }}>{result.name} · {new Date().toLocaleDateString()}</div>
             </div>
-          </GlassCard>
+
+            {/* grade card */}
+            <section className="card rise" style={{ marginBottom: 16, display: "flex", gap: 26, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>Audit result</div>
+                <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2, marginBottom: 4 }}>{result.name}</div>
+                <div style={{ fontSize: 13, color: "var(--faint)", marginBottom: 12 }}>{result.address}</div>
+                <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>{gradeVerdict[result.grade]}</p>
+              </div>
+              <GradeStamp grade={result.grade} score={result.score} />
+            </section>
+
+            {/* rank ladder — the "see it" moment */}
+            <RankLadder rivals={result.rivals} youName={result.name} />
+
+            {/* metrics */}
+            <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.15s" }}>
+              <div className="eyebrow" style={{ marginBottom: 10 }}>Profile readings — live Google data</div>
+              <MetricRow label="Star rating" value={result.rating} max={5}
+                display={result.reviewCount ? result.rating.toFixed(1) + " ★" : "—"} ok={result.rating >= 4} />
+              <MetricRow label="Reviews" value={result.reviewCount} max={150}
+                display={String(result.reviewCount)} ok={result.reviewCount >= 50} />
+              <MetricRow label="Photos" value={result.photoCount} max={10}
+                display={result.photoCapped ? "10+" : String(result.photoCount)} ok={result.photoCount >= 5} />
+              <MetricRow label="Profile complete" value={completeness} max={5}
+                display={completeness + "/5"} ok={completeness === 5} />
+              {result.lastReviewDays !== null && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0 2px" }}>
+                  <span className="eyebrow">Newest visible review</span>
+                  <span style={{ fontFamily: "var(--mono)", fontWeight: 600, fontSize: 14, color: result.lastReviewDays > 180 ? "var(--red)" : "var(--green)" }}>
+                    {result.lastReviewDays === 0 ? "today" : result.lastReviewDays + " days ago"}
+                  </span>
+                </div>
+              )}
+            </section>
+
+            <ActionPlan plan={result.plan} />
+
+            {/* findings */}
+            <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.25s" }}>
+              <div className="eyebrow" style={{ marginBottom: 6 }}>Findings — tap to expand</div>
+              {result.issues.map((i, idx) => <Finding key={idx} text={i.text} level={i.level} />)}
+            </section>
+
+            {/* CTA */}
+            <section className="card rise no-print" style={{ animationDelay: "0.3s", borderTop: "3px solid var(--red)" }}>
+              <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Want this handled for you?</div>
+              <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.65, margin: "0 0 18px" }}>
+                RepBlaze manages your Google profile, automates review collection, responds to every review, and tracks the competitors above — so you can run your business.
+              </p>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button className="btn-primary" onClick={() => setModalOpen(true)}>Get my fix plan</button>
+                <button className="btn-ghost" onClick={() => window.print()}>Print / save report</button>
+              </div>
+            </section>
+          </div>
         )}
 
         {!loading && !result && !error && (
-          <div style={{ textAlign: "center", color: "#ffffff22", fontSize: 12, letterSpacing: 1, padding: "20px 0" }}>
-            ↑ Enter a business name and city to run a free audit
-          </div>
+          <p className="no-print" style={{ textAlign: "center", color: "var(--faint)", fontSize: 14 }}>
+            Enter a business above to run a free audit.
+          </p>
         )}
+      </main>
 
-        {result && (
-          <div>
-            {/* Print-only report header */}
-            <div className="print-only" style={{ display: "none", marginBottom: 24, paddingBottom: 16, borderBottom: "2px solid #ffd700" }}>
-              <div style={{ fontSize: 22, fontWeight: "bold", fontFamily: MONO, letterSpacing: 3 }}>REPBLAZE AUDIT REPORT</div>
-              <div style={{ fontSize: 12, marginTop: 6 }}>{result.name} · Generated {new Date().toLocaleDateString()}</div>
-            </div>
-
-            {/* Score + name */}
-            <GlassCard className="reveal hover-lift" style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 24 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 22, fontWeight: "bold", color: "#fff", marginBottom: 6 }}>{result.name}</div>
-                <div style={{ fontSize: 11, color: "#ffffff33", letterSpacing: 1, marginBottom: 16 }}>{result.address}</div>
-                <div style={{ fontSize: 12, color: "#ffffff66", lineHeight: 1.7 }}>
-                  {result.score < 50 && "⚠ Your profile has critical gaps that may be costing you customers and visibility."}
-                  {result.score >= 50 && result.score < 80 && "◆ Your profile has room to grow. Fixing these issues can help strengthen your local presence."}
-                  {result.score >= 80 && "✓ Strong profile. Let's protect your position and keep the reviews coming."}
-                </div>
-              </div>
-              <ScoreRing score={result.score} />
-            </GlassCard>
-
-            {/* Real competitor comparison */}
-            {result.comp && <CompetitorBox comp={result.comp} />}
-
-            {/* Metrics */}
-            <GlassCard className="reveal hover-lift" style={{ marginBottom: 20, animationDelay: "0.15s" }}>
-              <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffffff33", marginBottom: 20, fontFamily: MONO }}>PROFILE METRICS — REAL DATA</div>
-              <StatBar label="STAR RATING" value={result.rating} max={5} decimals={1} color={result.rating >= 4 ? "#00ff88" : result.rating >= 3 ? "#ffd700" : "#ff4444"} />
-              <StatBar label="TOTAL REVIEWS" value={result.reviewCount} max={200} color="#ffd700" />
-              <StatBar label="PHOTOS UPLOADED" value={result.photoCount} max={20} color="#00aaff" />
-              <StatBar label="PROFILE COMPLETENESS" value={[result.rating > 0, result.reviewCount > 0, result.photoCount > 0, result.hasHours, result.hasWebsite, result.hasPhone].filter(Boolean).length} max={6} display={`${[result.rating > 0, result.reviewCount > 0, result.photoCount > 0, result.hasHours, result.hasWebsite, result.hasPhone].filter(Boolean).length}/6`} color="#aa88ff" />
-            </GlassCard>
-
-            {/* Action plan from real gaps */}
-            <ActionPlan plan={result.plan} />
-
-            {/* Issue cards - expandable */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffffff33", marginBottom: 16 }}>AUDIT FINDINGS — TAP TO EXPAND</div>
-              {result.issues.map((i, idx) => <IssueCard key={idx} text={i.text} level={i.level} />)}
-            </div>
-
-            {/* CTA */}
-            <GlassCard glow className="reveal no-print" style={{ textAlign: "center", border: "1px solid rgba(255,215,0,0.2)", animationDelay: "0.3s" }}>
-              <div style={{ fontSize: 10, letterSpacing: 3, color: "#ffd700", marginBottom: 10, fontFamily: MONO }}>WANT REPBLAZE TO FIX THIS FOR YOU?</div>
-              <div style={{ fontSize: 15, color: "#ffffff88", marginBottom: 24, lineHeight: 1.7, maxWidth: 480, margin: "0 auto 24px" }}>
-                We manage your Google profile, automate review collection, respond to every review, and track competitors — so you can focus on running your business.
-              </div>
-              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                <button onClick={() => setModalOpen(true)} className="glow-btn"
-                  style={{ background: "linear-gradient(135deg, #ffd700, #ff8c00)", color: "#0a0a0f", padding: "16px 36px", borderRadius: 10, fontFamily: MONO, fontWeight: "bold", fontSize: 12, letterSpacing: 2, border: "none", cursor: "pointer", boxShadow: "0 0 40px rgba(255,215,0,0.3)" }}>
-                  ACTIVATE REPBLAZE →
-                </button>
-                <button onClick={() => window.print()}
-                  style={{ background: "rgba(255,255,255,0.06)", color: "#fff", padding: "16px 28px", borderRadius: 10, fontFamily: MONO, fontWeight: "bold", fontSize: 12, letterSpacing: 2, border: "1px solid rgba(255,255,255,0.15)", cursor: "pointer", transition: "all 0.25s" }}
-                  onMouseOver={e => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}
-                  onMouseOut={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; }}>
-                  ↓ DOWNLOAD REPORT
-                </button>
-              </div>
-            </GlassCard>
-          </div>
-        )}
-      </div>
+      <footer className="no-print" style={{ borderTop: "1px solid var(--line)", padding: "20px", textAlign: "center" }}>
+        <span className="eyebrow" style={{ fontSize: 10 }}>RepBlaze · Local reputation, managed · St. Joseph, MO</span>
+      </footer>
 
       <LeadModal open={modalOpen} onClose={() => setModalOpen(false)} businessName={result?.name} onSubmit={handleLead} />
     </div>
