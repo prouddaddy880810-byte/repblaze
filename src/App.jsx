@@ -6,8 +6,7 @@ import { useState, useEffect, useRef } from "react";
    LEAD_ENDPOINT: your RepBlaze Apps Script web-app /exec URL.
    Leads POST here AND back up to localStorage — never lost.
    ============================================================ */
-const LEAD_ENDPOINT = "https://script.google.com/macros/s/AKfycbwGnRbz1O3zDlPDyDDDDkXx2P36pp0Te_NqGOalGStNJ4ztr2-gNblPft2PWmibQWI_PA/exec";
-
+const LEAD_ENDPOINT = "https://script.google.com/macros/s/AKfycbxr2fJSrhlcBe7qm0b1ydjYN94YBgBEPVkYXlKFxwuaWFvzPu8gYmEtuJ3yXmvYNO3l7g/exec"
 /* ---------- helpers ---------- */
 
 const daysAgo = (d) => Math.floor((Date.now() - d.getTime()) / 86400000);
