@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Complimentary site audit for I&M Machine & Fabrication (imfab.com) from RepBlaze — real gaps, real grade." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<title>RepBlaze Site Audit — I&amp;M Machine &amp; Fabrication</title>
+<style>
+  :root{
+    --paper:#f6f4ee;
+    --surface:#ffffff;
+    --ink:#17130e;
+    --muted:#6e675c;
+    --faint:#a39b8d;
+    --line:#e2ddd1;
+    --line-strong:#cdc5b4;
+    --red:#d92b21;
+    --red-dark:#b0201a;
+    --red-tint:#fbe6e3;
+    --green:#1e7a44;
+    --amber:#a66a00;
+    --blue:#1d5fa8;
+    --blue-tint:#e4ecf5;
+    --sans:'Archivo', system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono:'IBM Plex Mono', ui-monospace, "SF Mono", Consolas, monospace;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#16130f;
+      --surface:#1e1a15;
+      --ink:#f3efe6;
+      --muted:#b3a99a;
+      --faint:#7d7364;
+      --line:#322c24;
+      --line-strong:#463f33;
+      --red:#ef5646;
+      --red-dark:#d92b21;
+      --red-tint:#2d1815;
+      --green:#3ea86a;
+      --amber:#d99a33;
+      --blue:#6d9bd6;
+      --blue-tint:#182432;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#16130f; --surface:#1e1a15; --ink:#f3efe6; --muted:#b3a99a; --faint:#7d7364;
+    --line:#322c24; --line-strong:#463f33; --red:#ef5646; --red-dark:#d92b21; --red-tint:#2d1815;
+    --green:#3ea86a; --amber:#d99a33; --blue:#6d9bd6; --blue-tint:#182432;
+  }
+  :root[data-theme="light"]{
+    --paper:#f6f4ee; --surface:#ffffff; --ink:#17130e; --muted:#6e675c; --faint:#a39b8d;
+    --line:#e2ddd1; --line-strong:#cdc5b4; --red:#d92b21; --red-dark:#b0201a; --red-tint:#fbe6e3;
+    --green:#1e7a44; --amber:#a66a00; --blue:#1d5fa8; --blue-tint:#e4ecf5;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper); color:var(--ink); font-family:var(--sans);
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--red); color:#fff; }
+  a{ color:var(--blue); text-decoration-thickness:1px; text-underline-offset:2px; }
+  a:focus-visible, button:focus-visible{ outline:2px solid var(--red); outline-offset:2px; }
+
+  .wrap{ max-width:920px; margin:0 auto; padding:0 24px 100px; }
+
+  .brand-bar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:22px 0 18px; flex-wrap:wrap;
+  }
+  .brand-bar .mark{ font-family:var(--sans); font-weight:900; font-size:19px; letter-spacing:-.01em; }
+  .brand-bar .mark span{ color:var(--red); }
+  .brand-bar .tag{ font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint); }
+
+  .doc-head{ border-bottom:3px solid var(--ink); padding:0 0 22px; margin-bottom:8px; }
+  .doc-head .kicker{
+    font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--red); font-weight:700; margin-bottom:14px;
+  }
+  .doc-head h1{
+    font-family:var(--sans); font-weight:900; font-size:clamp(30px,5vw,48px);
+    line-height:1.05; letter-spacing:-.01em; margin:0 0 18px; text-wrap:balance;
+  }
+  .doc-meta{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:16px;
+    font-family:var(--mono); font-size:12px; color:var(--muted);
+    border-top:1px solid var(--line); padding-top:14px;
+  }
+  .doc-meta div span{ display:block; color:var(--faint); text-transform:uppercase; letter-spacing:.08em; font-size:10px; margin-bottom:3px;}
+  .doc-meta div strong{ color:var(--ink); font-weight:600; }
+
+  .verdict-wrap{
+    display:flex; align-items:center; gap:20px; flex-wrap:wrap;
+    margin:26px 0 40px; padding:18px 20px;
+    border:1px solid var(--line); background:var(--surface);
+  }
+  .stamp{
+    flex-shrink:0; border:3px solid var(--red); color:var(--red);
+    font-family:var(--mono); font-weight:700; text-transform:uppercase;
+    letter-spacing:.06em; font-size:13px; padding:10px 14px;
+    transform:rotate(-6deg); text-align:center; line-height:1.3; border-radius:4px;
+  }
+  .stamp .grade{ font-size:26px; display:block; font-weight:700; }
+  .verdict-copy{ font-size:14px; color:var(--muted); max-width:56ch; }
+  .verdict-copy strong{ color:var(--ink); }
+
+  .toc{ display:flex; flex-wrap:wrap; gap:6px 0; margin:0 0 56px; border:1px solid var(--line); background:var(--surface); }
+  .toc a{
+    flex:1 1 auto; min-width:180px; display:flex; align-items:baseline; gap:8px;
+    padding:14px 18px; text-decoration:none; color:var(--ink); border-right:1px solid var(--line); font-size:13.5px;
+  }
+  .toc a:last-child{ border-right:none; }
+  .toc a:hover{ background:var(--red-tint); }
+  .toc em{ font-style:normal; font-family:var(--mono); color:var(--red); font-weight:700; font-size:12px; }
+
+  section.doc-section{ margin:0 0 68px; }
+  .sec-head{ display:flex; align-items:baseline; gap:16px; border-bottom:1px solid var(--line-strong); padding-bottom:12px; margin-bottom:26px; }
+  .sec-num{ font-family:var(--mono); font-size:14px; font-weight:700; color:var(--red); flex-shrink:0; }
+  .sec-head h2{ font-family:var(--sans); font-weight:800; font-size:clamp(21px,3vw,28px); margin:0; letter-spacing:-.005em; text-wrap:balance; }
+  .sec-dek{ color:var(--muted); font-size:15px; max-width:64ch; margin:-14px 0 26px; }
+  p{ max-width:66ch; }
+  .lede{ font-size:17.5px; color:var(--ink); max-width:66ch; }
+  h3{ font-family:var(--sans); font-weight:700; font-size:18px; letter-spacing:-.005em; margin:0 0 6px; }
+
+  .fact-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin:22px 0 30px; }
+  .fact{ background:var(--surface); padding:18px 16px; }
+  .fact .n{ font-family:var(--mono); font-weight:700; font-size:22px; color:var(--blue); font-variant-numeric:tabular-nums; }
+  .fact .l{ font-size:12px; color:var(--muted); margin-top:4px; }
+
+  .quote-block{
+    border-left:3px solid var(--blue); background:var(--blue-tint); padding:14px 18px;
+    font-size:14.5px; color:var(--ink); margin:18px 0 28px; max-width:64ch;
+  }
+  .quote-block cite{ display:block; margin-top:8px; font-style:normal; font-family:var(--mono); font-size:11px; color:var(--muted); }
+
+  .nav-list{
+    columns:2; column-gap:32px; font-family:var(--mono); font-size:13px; color:var(--muted);
+    border:1px solid var(--line); padding:16px 20px; background:var(--surface); margin:10px 0 6px;
+  }
+  .nav-list li{ break-inside:avoid; margin-bottom:6px; }
+
+  .gap{ display:grid; grid-template-columns:34px 1fr; gap:18px; padding:22px 0; border-bottom:1px solid var(--line); }
+  .gap:first-of-type{ border-top:1px solid var(--line-strong); }
+  .gap .tag{ font-family:var(--mono); font-size:11px; font-weight:700; color:var(--red); writing-mode:vertical-rl; text-orientation:mixed; letter-spacing:.06em; }
+  .gap h3{ margin-bottom:8px; }
+  .gap .body{ color:var(--muted); font-size:14.5px; max-width:64ch; }
+  .gap .body strong{ color:var(--ink); }
+
+  .ia-note{ display:flex; gap:14px; flex-wrap:wrap; margin:0 0 26px; }
+  .ia-note .card{ flex:1 1 260px; border:1px solid var(--line); background:var(--surface); padding:16px 18px; }
+  .ia-note .card .eyebrow{ font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--red); font-weight:700; margin-bottom:6px; }
+  .ia-note .card p{ font-size:13.5px; color:var(--muted); margin:0; }
+
+  /* ---------- redacted-content summaries ---------- */
+  .stat-block{ display:flex; gap:32px; flex-wrap:wrap; margin:18px 0 16px; padding:22px 24px; border:1px solid var(--line); background:var(--surface); }
+  .stat-block .stat .n{ font-family:var(--mono); font-weight:700; font-size:30px; color:var(--red); font-variant-numeric:tabular-nums; }
+  .stat-block .stat .l{ font-size:12px; color:var(--muted); margin-top:4px; max-width:20ch; }
+
+  .hub-list{ display:flex; flex-wrap:wrap; gap:8px; list-style:none; margin:0 0 8px; padding:0; }
+  .hub-list li{ font-family:var(--mono); font-size:12px; padding:7px 13px; border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); }
+
+  .locked-list{ border:1px solid var(--line); background:var(--surface); margin:16px 0 8px; }
+  .locked-row{ display:flex; align-items:baseline; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line); }
+  .locked-row:last-child{ border-bottom:none; }
+  .locked-row .idx{ font-family:var(--mono); font-size:12px; color:var(--faint); width:18px; flex-shrink:0; }
+  .locked-row .name{ font-weight:600; flex:1 1 auto; min-width:140px; }
+  .locked-row .purpose{ font-family:var(--mono); font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--faint); }
+
+  .locked-note{ font-size:13.5px; color:var(--muted); font-style:italic; margin:14px 0 0; }
+
+  .service-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin:22px 0 6px; }
+  .service-card{ background:var(--surface); padding:20px 22px 22px; }
+  .service-card .eyebrow{ font-family:var(--mono); font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--red); font-weight:700; margin-bottom:8px; }
+  .service-card h3{ margin:0 0 8px; }
+  .service-card p{ font-size:13.5px; color:var(--muted); margin:0; max-width:40ch; }
+  .service-card.current{ background:var(--blue-tint); }
+  .service-card.current .eyebrow{ color:var(--blue); }
+  .service-note{ font-size:14px; color:var(--muted); margin:18px 0 0; max-width:64ch; }
+
+  .cta-close{
+    margin:0 0 60px; padding:32px 28px; background:var(--ink); color:var(--paper);
+    text-align:left;
+  }
+  .cta-close .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--red); font-weight:700; margin-bottom:10px; }
+  .cta-close h2{ font-family:var(--sans); font-weight:800; font-size:clamp(20px,3vw,28px); margin:0 0 10px; }
+  .cta-close p{ color:#cfc9bc; font-size:14.5px; max-width:60ch; margin:0 0 20px; }
+  .btn-primary{
+    display:inline-block; background:var(--red); color:#fff; border:none; border-radius:6px;
+    padding:14px 26px; font-family:var(--mono); font-weight:700; font-size:13px;
+    letter-spacing:.08em; text-transform:uppercase; text-decoration:none; cursor:pointer; transition:background .15s;
+  }
+  .btn-primary:hover{ background:var(--red-dark); }
+
+  footer.doc-foot{
+    border-top:3px solid var(--ink); padding-top:20px;
+    font-family:var(--mono); font-size:11.5px; color:var(--faint);
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;
+  }
+  footer.doc-foot .mark span{ color:var(--red); }
+
+  @media (max-width:640px){
+    .doc-meta{ grid-template-columns:repeat(2,1fr); }
+    .fact-grid{ grid-template-columns:repeat(2,1fr); }
+    .nav-list{ columns:1; }
+    .toc a{ min-width:140px; }
+    .service-grid{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand-bar">
+    <div class="mark">REP<span>BLAZE</span></div>
+    <div class="tag">Complimentary Site Audit</div>
+  </div>
+
+  <div class="doc-head">
+    <div class="kicker">Prepared for I&amp;M Machine &amp; Fabrication</div>
+    <h1>imfab.com — From Equipment List to Lead Engine</h1>
+    <div class="doc-meta">
+      <div><span>Subject</span><strong>imfab.com</strong></div>
+      <div><span>Client</span><strong>I&amp;M Machine &amp; Fab. Corp.</strong></div>
+      <div><span>Location</span><strong>St. Joseph, MO</strong></div>
+      <div><span>Prepared by</span><strong>RepBlaze — Jul 27, 2026</strong></div>
+    </div>
+  </div>
+
+  <div class="verdict-wrap">
+    <div class="stamp">Lead-Gen<span class="grade">D</span>Readiness</div>
+    <div class="verdict-copy">
+      <strong>The shop earns an A. The site doesn't sell it.</strong>
+      Real capability — 50 years, ISO 9001, a genuine one-source shop — sitting behind a layout built for an equipment log, not a buyer. That gap is fixable, and it's the single highest-leverage thing on the table below.
+    </div>
+  </div>
+
+  <nav class="toc" aria-label="Table of contents">
+    <a href="#snapshot"><em>00</em>Current-State Snapshot</a>
+    <a href="#gaps"><em>01</em>Lead-Gen Gap Analysis</a>
+    <a href="#ia"><em>02</em>Information Architecture</a>
+    <a href="#homepage"><em>03</em>Homepage Content Outline</a>
+    <a href="#beyond"><em>04</em>Beyond the Website</a>
+  </nav>
+
+  <!-- ============ 00 SNAPSHOT ============ -->
+  <section class="doc-section" id="snapshot">
+    <div class="sec-head"><span class="sec-num">00</span><h2>Current-State Snapshot</h2></div>
+    <p class="sec-dek">imfab.com blocks automated fetching directly, so this reads the site through its indexed pages, cached copy, and public listings — sufficient to map structure and messaging with confidence.</p>
+
+    <p class="lede">I&amp;M is a real, well-equipped, 50-year shop — the site just doesn't argue that case. It's currently organized like an internal equipment log, not a sales tool for the engineers and buyers evaluating it.</p>
+
+    <div class="fact-grid">
+      <div class="fact"><div class="n">1974</div><div class="l">Family-owned, founded</div></div>
+      <div class="fact"><div class="n">325,000</div><div class="l">Sq. ft. under one roof</div></div>
+      <div class="fact"><div class="n">~200</div><div class="l">Skilled employees</div></div>
+      <div class="fact"><div class="n">2001</div><div class="l">ISO 9001 certified</div></div>
+    </div>
+
+    <h3>Current top-level pages (as indexed)</h3>
+    <ul class="nav-list">
+      <li>Home</li><li>Fabrication</li><li>Capacity</li>
+      <li>Punching &amp; Shearing</li><li>Fiber / CO2 Laser Cutting</li>
+      <li>Robotic Welding</li><li>Welding</li><li>Forming</li>
+      <li>Engineering (Estimate &amp; CAD)</li><li>Quality</li>
+      <li>Jobs</li><li>Contact</li>
+    </ul>
+
+    <p>The pattern: <strong>one page per machine or process</strong> — Punching &amp; Shearing, Forming, Welding, Laser Cutting — rather than pages organized around what a buyer is trying to accomplish. It's an equipment index, not a sales narrative.</p>
+
+    <div class="quote-block">
+      "A complete service, one source shop" — offering custom metal fabrication, precision machining, and industrial metal finishing under one roof. "When you have many options, choose American made."
+      <cite>— messaging currently live on imfab.com</cite>
+    </div>
+
+    <p>The hardware backs up the claim: a 12,000W Trumpf fiber laser, four robotic welders (including a Lincoln Electric FabPak XHS), 30+ manual weld booths staffed by AWS-certified welders with 100+ combined years, a 110-ton punch press, 33-ton turret punch, waterjet, plasma, CNC tube bending, and full powder-coat / wet-paint finishing. That's a genuinely strong "one source shop" story — it's just distributed across a dozen equipment pages instead of told as one.</p>
+  </section>
+
+  <!-- ============ 01 GAPS (diagnosis only — fixes withheld) ============ -->
+  <section class="doc-section" id="gaps">
+    <div class="sec-head"><span class="sec-num">01</span><h2>Lead-Gen Gap Analysis</h2></div>
+    <p class="sec-dek">Measured against how modern industrial B2B buyers actually evaluate and select a fabrication partner. The full brief pairs each gap with the specific fix — this is the diagnosis.</p>
+
+    <div class="gap">
+      <span class="tag">GAP&nbsp;A</span>
+      <div>
+        <h3>Conversion path is one generic contact form</h3>
+        <div class="body">A purchasing engineer with a print in hand wants to <strong>upload a drawing and get a number</strong> — not fill in "tell us about your business." Today that path doesn't visibly exist; quoting is buried inside a general Contact page with no RFQ-specific flow, file upload, or persistent CTA.</div>
+      </div>
+    </div>
+
+    <div class="gap">
+      <span class="tag">GAP&nbsp;B</span>
+      <div>
+        <h3>Trust is asserted, not demonstrated</h3>
+        <div class="body">ISO 9001 and "Made in America" exist as <strong>text on isolated pages</strong>, not as proof a buyer carries through the whole evaluation. No certificate image, no case studies, no project portfolio, no named testimonials anywhere in the crawl.</div>
+      </div>
+    </div>
+
+    <div class="gap">
+      <span class="tag">GAP&nbsp;C</span>
+      <div>
+        <h3>Structured by machine, not by buyer intent</h3>
+        <div class="body">The nav assumes the visitor already speaks fabrication fluently. It has no answer for a buyer who searches <strong>"agriculture equipment fabricator Missouri"</strong> or <strong>"defense metal fab supplier"</strong> rather than "punching and shearing." Zero industry-specific landing pages, despite equipment that clearly targets ag, construction, defense, and OEM work.</div>
+      </div>
+    </div>
+
+    <div class="gap">
+      <span class="tag">GAP&nbsp;D</span>
+      <div>
+        <h3>No content layer for top-of-funnel search</h3>
+        <div class="body">No blog, resources, or process-explainer content — the highest-leverage, lowest-cost channel for capturing engineers researching a process before they're ready to name a supplier.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 02 IA (summary only — full sitemap withheld) ============ -->
+  <section class="doc-section" id="ia">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Information Architecture</h2></div>
+    <p class="sec-dek">The redesign keeps every real capability on the current site — nothing is dropped — but regroups it around two forces that have to coexist on every page: the <strong>One Source Shop</strong> promise (breadth, proven as one continuous flow) and <strong>Made in America</strong> credentialing (trust, proven with documentation, not adjectives).</p>
+
+    <div class="ia-note">
+      <div class="card"><div class="eyebrow">One Source Shop</div><p>Structural — becomes a <em>Capabilities hub</em> that visually chains Design → Cut → Form → Machine → Weld → Finish → Ship, so breadth reads as one integrated process instead of a dozen disconnected machine pages.</p></div>
+      <div class="card"><div class="eyebrow">Made in America</div><p>Persistent — ISO 9001 + domestic-sourcing badges live in the header/footer on <em>every</em> template, plus a dedicated Quality hub with the actual certificate and documentation, not just a claim.</p></div>
+    </div>
+
+    <div class="stat-block">
+      <div class="stat"><div class="n">6</div><div class="l">new page hubs</div></div>
+      <div class="stat"><div class="n">23</div><div class="l">pages mapped, new + reorganized</div></div>
+      <div class="stat"><div class="n">1</div><div class="l">primary conversion path (new)</div></div>
+    </div>
+
+    <ul class="hub-list">
+      <li>Capabilities</li><li>Industries We Serve</li><li>Quality &amp; Certifications</li>
+      <li>Our Work</li><li>Resources</li><li>Request a Quote</li>
+    </ul>
+    <p class="locked-note">Full sitemap — every sub-page, label, and redirect — included with engagement.</p>
+  </section>
+
+  <!-- ============ 03 HOMEPAGE (module list only — copy/specs withheld) ============ -->
+  <section class="doc-section" id="homepage">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Homepage Content Outline</h2></div>
+    <p class="sec-dek">Eleven modules, in page order, each scoped to one job: prove the one-source claim, prove the credential, or move a qualified buyer to a quote.</p>
+
+    <div class="locked-list">
+      <div class="locked-row"><span class="idx">01</span><span class="name">Trust Bar</span><span class="purpose">Global</span></div>
+      <div class="locked-row"><span class="idx">02</span><span class="name">Hero</span><span class="purpose">Thesis + CTA</span></div>
+      <div class="locked-row"><span class="idx">03</span><span class="name">Capability Chain</span><span class="purpose">One Source Shop, proven</span></div>
+      <div class="locked-row"><span class="idx">04</span><span class="name">Equipment Highlights</span><span class="purpose">Proof-by-spec</span></div>
+      <div class="locked-row"><span class="idx">05</span><span class="name">Industries We Serve</span><span class="purpose">Self-identification</span></div>
+      <div class="locked-row"><span class="idx">06</span><span class="name">Quality &amp; "Made in America"</span><span class="purpose">Credential, documented</span></div>
+      <div class="locked-row"><span class="idx">07</span><span class="name">Featured Project</span><span class="purpose">Proof-by-example</span></div>
+      <div class="locked-row"><span class="idx">08</span><span class="name">Why I&amp;M</span><span class="purpose">Differentiation</span></div>
+      <div class="locked-row"><span class="idx">09</span><span class="name">Request a Quote</span><span class="purpose">Primary conversion</span></div>
+      <div class="locked-row"><span class="idx">10</span><span class="name">Careers Teaser</span><span class="purpose">Labor pipeline</span></div>
+      <div class="locked-row"><span class="idx">11</span><span class="name">Footer</span><span class="purpose">Sitemap + trust repeat</span></div>
+    </div>
+    <p class="locked-note">Section copy, layout specs, and build order for all eleven modules included with engagement.</p>
+  </section>
+
+  <!-- ============ 04 BEYOND THE WEBSITE ============ -->
+  <section class="doc-section" id="beyond">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Beyond the Website</h2></div>
+    <p class="sec-dek">A new homepage fixes the front door. These are the systems that keep the shop full once buyers start showing up.</p>
+
+    <div class="service-grid">
+      <div class="service-card current">
+        <div class="eyebrow">This Report</div>
+        <h3>Website &amp; Lead-Gen Redesign</h3>
+        <p>The IA and homepage scoped above — built to convert, not just describe.</p>
+      </div>
+      <div class="service-card">
+        <div class="eyebrow">Reputation Engine</div>
+        <h3>Automated Review Requests</h3>
+        <p>Every completed job triggers a request for a 5-star review, so trust compounds instead of stalling.</p>
+      </div>
+      <div class="service-card">
+        <div class="eyebrow">Local Search</div>
+        <h3>GBP &amp; Local SEO Optimization</h3>
+        <p>The same audit engine behind this report's grade, tuned to move imfab.com's Google Business Profile toward the top of local search.</p>
+      </div>
+      <div class="service-card">
+        <div class="eyebrow">Operations</div>
+        <h3>Business Systems</h3>
+        <p>Intake, quoting, and follow-up put on rails, so leads from the new site don't die in somebody's inbox.</p>
+      </div>
+    </div>
+    <p class="service-note">All four run under one monthly RepBlaze plan. Most partners start with one and add the rest once they see it work.</p>
+  </section>
+
+  <section class="cta-close">
+    <div class="eyebrow">Next step</div>
+    <h2>This is the diagnosis. RepBlaze builds the fix.</h2>
+    <p>The full sitemap, the eleven-module homepage spec, and a walkthrough of the rest of the RepBlaze partnership are one conversation away.</p>
+    <!-- TODO: point at your real contact / lead-capture endpoint -->
+    <a class="btn-primary" href="#">Book the Full Walkthrough</a>
+  </section>
+
+  <footer class="doc-foot">
+    <span class="mark">Rep<span>Blaze</span> · Site audits, done right · St. Joseph, MO</span>
+    <span>Sources: imfab.com (indexed/cached), public business listings</span>
+  </footer>
+
+</div>
+</body>
+</html>
