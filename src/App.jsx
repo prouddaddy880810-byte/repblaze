@@ -7,6 +7,11 @@ import { useState, useEffect, useRef } from "react";
    Leads POST here AND back up to localStorage — never lost.
    ============================================================ */
 const LEAD_ENDPOINT = "https://script.google.com/macros/s/AKfycbxr2fJSrhlcBe7qm0b1ydjYN94YBgBEPVkYXlKFxwuaWFvzPu8gYmEtuJ3yXmvYNO3l7g/exec"
+/* SITE_CHECK_ENDPOINT: same Apps Script project as LEAD_ENDPOINT, with a
+   doGet(e) added (see scripts/apps-script/site-check.gs.js). Empty until
+   that's deployed — the site-check step is skipped, not broken, when unset. */
+const SITE_CHECK_ENDPOINT = "";
+const SITE_CHECK_TIMEOUT_MS = 8000;
 /* ---------- helpers ---------- */
 
 const daysAgo = (d) => Math.floor((Date.now() - d.getTime()) / 86400000);
@@ -69,6 +74,30 @@ const FINDING_DETAIL = {
     why: "Nearby businesses in your category show stronger review numbers, which pulls customers toward them when they compare options side by side.",
     fix: "RepBlaze tracks competitor activity and runs consistent review collection to close the gap.",
   },
+  "No quote or contact form found": {
+    why: "A visitor ready to buy has no obvious next step, so they either hunt for a phone number or leave for a competitor's site.",
+    fix: "RepBlaze builds a direct request-a-quote path into the homepage, not buried in a generic contact page.",
+  },
+  "Not mobile-optimized": {
+    why: "Most local searches happen on a phone. A site that isn't built for mobile turns away the majority of traffic before it reads a word.",
+    fix: "RepBlaze rebuilds the site mobile-first, so it works on the device most customers are actually using.",
+  },
+  "No phone number visible on site": {
+    why: "Customers who want to call rather than fill out a form can't find a number, so they call the next result instead.",
+    fix: "RepBlaze puts a click-to-call number in the header on every page.",
+  },
+  "No trust signals on site": {
+    why: "Certifications, guarantees, and credentials don't sell themselves if they're never mentioned — a buyer comparing options has no reason to pick you over an unknown competitor.",
+    fix: "RepBlaze surfaces your real credentials — licenses, certifications, years in business — where buyers actually look.",
+  },
+  "Site not using HTTPS": {
+    why: "Browsers flag non-HTTPS sites as \"Not Secure,\" which erodes trust before a visitor reads anything else.",
+    fix: "RepBlaze migrates the site to HTTPS as part of any rebuild.",
+  },
+  "Site didn't respond to an automated scan": {
+    why: "Could be bot protection (common, not itself a bad sign) or the site is genuinely slow or down — either way it's worth a human look before writing this lead off.",
+    fix: "RepBlaze does a manual review for any site our scanner can't reach automatically.",
+  },
 };
 
 const FINDING_OK = {
@@ -77,6 +106,51 @@ const FINDING_OK = {
   "Website linked": "Your website is connected — good.",
   "Photo gallery active": "Solid photo presence. Fresh uploads keep it working.",
   "Ahead of nearby competitors": "You're outperforming nearby businesses in your category. Worth defending.",
+  "Quote or contact form found": "Visitors have a clear next step. Worth checking it's actually easy to complete.",
+  "Mobile-optimized": "The site is built for the device most visitors are using.",
+  "Phone number visible on site": "A visitor who'd rather call than click through a form can find a number.",
+  "Trust signals present on site": "Certifications or credentials are visible somewhere on the page.",
+  "HTTPS enabled": "The site loads securely — one less reason for a visitor to bounce.",
+};
+
+/* ---------- site-check scoring (deterministic, no LLM — cheap & fast) ---------- */
+
+const scoreSite = (data) => {
+  let score = 0;
+  const issues = [];
+  if (data.mobileFriendly) { score += 25; issues.push({ text: "Mobile-optimized", level: "ok" }); }
+  else issues.push({ text: "Not mobile-optimized", level: "critical" });
+
+  if (data.hasQuoteForm) { score += 30; issues.push({ text: "Quote or contact form found", level: "ok" }); }
+  else issues.push({ text: "No quote or contact form found", level: "critical" });
+
+  if (data.hasPhoneText) { score += 15; issues.push({ text: "Phone number visible on site", level: "ok" }); }
+  else issues.push({ text: "No phone number visible on site", level: "warning" });
+
+  if (data.hasTrustKeyword) { score += 15; issues.push({ text: "Trust signals present on site", level: "ok" }); }
+  else issues.push({ text: "No trust signals on site", level: "warning" });
+
+  if (data.https) { score += 15; issues.push({ text: "HTTPS enabled", level: "ok" }); }
+  else issues.push({ text: "Site not using HTTPS", level: "critical" });
+
+  return { score: Math.min(score, 100), grade: gradeOf(Math.min(score, 100)), issues };
+};
+
+/* ---------- cold outreach script (no website listed — zero network calls) ---------- */
+
+const buildColdScript = (result) => {
+  const city = (result.address || "").split(",")[0] || "the area";
+  const cat = (result.category || "business").toLowerCase();
+  const hasReviews = result.reviewCount > 0;
+  const ratingLine = hasReviews ? `you're sitting at ${result.rating.toFixed(1)}★ with ${result.reviewCount} reviews on Google, which is solid` : `you're already listed on Google`;
+  return {
+    call: `Hi, is this ${result.name}? ... This is [YOUR NAME] with RepBlaze — we help local ${cat} businesses in ${city} get found online. I pulled up your Google listing and ${ratingLine}, but there's no website connected to it, so anyone who finds you on Google has nowhere else to go. Got five minutes this week to talk about fixing that?`,
+    text: `Hi, this is [YOUR NAME] with RepBlaze. Came across ${result.name} on Google — noticed there's no website linked to your listing. We build sites for local businesses and can usually have one live within a couple weeks. Worth a quick call?`,
+    email: {
+      subject: `${result.name} — no website linked on Google`,
+      body: `Hi,\n\nI came across ${result.name} while looking at local ${cat} businesses in ${city}. Your Google Business Profile looks good${hasReviews ? ` (${result.rating.toFixed(1)}★, ${result.reviewCount} reviews)` : ""}, but there's no website linked — so anyone who finds you on Google has nowhere else to go to learn more or reach out.\n\nWe're RepBlaze — we build lead-gen websites for local businesses and manage the Google/reviews side too. Happy to send over a quick mockup if you're open to it.\n\n[YOUR NAME]\nRepBlaze`,
+    },
+  };
 };
 
 /* ---------- small components ---------- */
@@ -229,6 +303,96 @@ function ActionPlan({ plan }) {
   );
 }
 
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      className="btn-ghost"
+      style={{ fontSize: 11, padding: "8px 14px" }}
+      onClick={() => {
+        navigator.clipboard?.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+    >
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+/* Site check — runs only when a website is listed. Never blocks the main
+   report: it renders after the GBP audit, in its own async state, and
+   degrades to a manual-review prompt instead of breaking on a slow or
+   bot-blocked site. */
+function SiteAuditCard({ siteCheck, websiteURI }) {
+  return (
+    <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.28s" }}>
+      <div className="eyebrow" style={{ marginBottom: 6 }}>Site audit — {websiteURI}</div>
+
+      {siteCheck.status === "checking" && (
+        <div style={{ fontFamily: "var(--mono)", fontSize: 13, color: "var(--muted)" }}>
+          <span style={{ animation: "blink 1s infinite" }}>Scanning site…</span>
+        </div>
+      )}
+
+      {siteCheck.status === "unconfigured" && (
+        <div style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
+          Automated site scanning isn't connected yet (see <code>SITE_CHECK_ENDPOINT</code>). Flag this one for a manual look.
+        </div>
+      )}
+
+      {(siteCheck.status === "blocked" || siteCheck.status === "error") && (
+        <Finding text="Site didn't respond to an automated scan" level="warning" />
+      )}
+
+      {siteCheck.status === "ok" && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 10, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "var(--mono)", fontWeight: 700, fontSize: 28, color: gradeColor(siteCheck.grade) }}>
+              {siteCheck.grade}
+            </span>
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>{siteCheck.score} / 100 lead-gen readiness</span>
+          </div>
+          {siteCheck.issues.map((i, idx) => <Finding key={idx} text={i.text} level={i.level} />)}
+        </>
+      )}
+    </section>
+  );
+}
+
+/* No website listed at all — the strongest possible pitch, so skip the
+   network entirely and hand the salesperson a ready script instead. */
+function ColdOutreachCard({ result }) {
+  const script = buildColdScript(result);
+  return (
+    <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.28s", borderTop: "3px solid var(--amber)" }}>
+      <div className="eyebrow" style={{ marginBottom: 6, color: "var(--amber)" }}>No website found — cold outreach script</div>
+      <p style={{ fontSize: 14, color: "var(--muted)", margin: "0 0 16px", lineHeight: 1.6 }}>
+        No site to audit, but "no website at all" is usually the easiest pitch in the pipeline. Pre-filled with this listing's real data.
+      </p>
+
+      {[["Call opener", script.call], ["Text", script.text]].map(([label, text]) => (
+        <div key={label} style={{ marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+            <span className="eyebrow" style={{ fontSize: 10 }}>{label}</span>
+            <CopyButton text={text} />
+          </div>
+          <div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.6, background: "var(--paper)", borderRadius: 6, padding: "10px 12px" }}>{text}</div>
+        </div>
+      ))}
+
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+          <span className="eyebrow" style={{ fontSize: 10 }}>Email — {script.email.subject}</span>
+          <CopyButton text={script.email.subject + "\n\n" + script.email.body} />
+        </div>
+        <div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.6, whiteSpace: "pre-wrap", background: "var(--paper)", borderRadius: 6, padding: "10px 12px" }}>{script.email.body}</div>
+      </div>
+    </section>
+  );
+}
+
 function LeadModal({ open, onClose, businessName, onSubmit }) {
   const [form, setForm] = useState({ name: "", business: "", phone: "", email: "", notes: "" });
   const [sent, setSent] = useState(false);
@@ -297,6 +461,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [mapsReady, setMapsReady] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [siteCheck, setSiteCheck] = useState({ status: "idle" });
   const reportRef = useRef(null);
 
   useEffect(() => {
@@ -326,11 +491,33 @@ export default function App() {
     }
   };
 
+  // Runs after the main audit, only when a website is listed. Isolated
+  // state, its own timeout, never throws past its own try/catch — a slow
+  // or bot-blocked site can't take down the report that already rendered.
+  const runSiteCheck = async (url) => {
+    if (!SITE_CHECK_ENDPOINT) { setSiteCheck({ status: "unconfigured" }); return; }
+    setSiteCheck({ status: "checking" });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SITE_CHECK_TIMEOUT_MS);
+    try {
+      const res = await fetch(SITE_CHECK_ENDPOINT + "?url=" + encodeURIComponent(url), { signal: controller.signal });
+      const data = await res.json();
+      if (!data.ok) { setSiteCheck({ status: "blocked" }); return; }
+      const { score, grade, issues } = scoreSite(data);
+      setSiteCheck({ status: "ok", score, grade, issues });
+    } catch {
+      setSiteCheck({ status: "error" });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   const runAudit = async () => {
     if (!query.trim() || !mapsReady || loading) return;
     setLoading(true);
     setError("");
     setResult(null);
+    setSiteCheck({ status: "idle" });
 
     try {
       const { places } = await window.google.maps.places.Place.searchByText({
@@ -452,10 +639,15 @@ export default function App() {
       setResult({
         name: place.displayName, address: place.formattedAddress,
         status: place.businessStatus || "OPERATIONAL",
+        category: place.primaryTypeDisplayName || (place.primaryType || "").replace(/_/g, " "),
+        websiteURI: place.websiteURI || "",
         rating, reviewCount, photoCount, photoCapped,
         hasHours, hasWebsite, hasPhone, lastReviewDays,
         score: s, grade: gradeOf(s), issues, plan: plan.slice(0, 5), rivals,
       });
+
+      // Fire-and-forget — never blocks the report above, which is already done.
+      if (hasWebsite) runSiteCheck(place.websiteURI);
     } catch (e) {
       setError("Something went wrong running the audit: " + e.message);
     }
@@ -565,6 +757,11 @@ export default function App() {
               <div className="eyebrow" style={{ marginBottom: 6 }}>Findings — tap to expand</div>
               {result.issues.map((i, idx) => <Finding key={idx} text={i.text} level={i.level} />)}
             </section>
+
+            {/* site audit (website listed) or cold outreach script (no website) */}
+            {result.hasWebsite
+              ? <SiteAuditCard siteCheck={siteCheck} websiteURI={result.websiteURI} />
+              : <ColdOutreachCard result={result} />}
 
             {/* CTA */}
             <section className="card rise no-print" style={{ animationDelay: "0.3s", borderTop: "3px solid var(--red)" }}>
