@@ -29,7 +29,7 @@
     color-scheme: light dark;
   }
   @media (prefers-color-scheme: dark){
-    :root{
+    :root:not([data-theme="light"]){
       --paper:#16130f;
       --surface:#1e1a15;
       --ink:#f3efe6;
