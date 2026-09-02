@@ -77,6 +77,43 @@ const FINDING_OK = {
   "Ahead of nearby competitors": "You're outperforming nearby businesses in your category. Worth defending.",
 };
 
+const OFFERS = [
+  {
+    number: "01",
+    title: "Google Business Profile",
+    copy: "We clean up, optimize, and actively manage the profile customers use to decide whether to call you or a competitor.",
+    items: ["Profile optimization", "Photos, posts, and updates", "Competitor gap tracking"],
+    outcome: "GET FOUND",
+  },
+  {
+    number: "02",
+    title: "Reviews & Reputation",
+    copy: "We build a steady review engine, respond professionally, and make sure your reputation keeps working after the job is done.",
+    items: ["Automated review requests", "Review response management", "Private feedback recovery"],
+    outcome: "GET CHOSEN",
+  },
+  {
+    number: "03",
+    title: "Local SEO & Conversion",
+    copy: "We strengthen the path from local search to phone call with focused pages, clearer offers, and better local signals.",
+    items: ["Local search optimization", "Conversion-focused landing pages", "Clear calls to action"],
+    outcome: "WIN THE CLICK",
+  },
+  {
+    number: "04",
+    title: "AI & Workflow Automation",
+    copy: "We connect the repetitive steps behind your growth so leads, follow-up, intake, and reporting do not depend on memory.",
+    items: ["Lead follow-up systems", "Custom intake and routing", "Simple owner dashboards"],
+    outcome: "RUN SMARTER",
+  },
+];
+
+const PROCESS = [
+  { number: "1", title: "Expose the gaps", copy: "Run the free audit. We compare your live profile data with nearby competitors and show where attention is leaking." },
+  { number: "2", title: "Build the system", copy: "We fix the foundation, install the review and follow-up flow, and connect the pieces your business actually needs." },
+  { number: "3", title: "Manage the momentum", copy: "RepBlaze keeps the system active, watches the numbers, and adjusts the next move as the market changes." },
+];
+
 /* ---------- small components ---------- */
 
 function GradeStamp({ grade, score }) {
@@ -107,7 +144,7 @@ function MetricRow({ label, value, display, max, ok }) {
   }, [value, max]);
   const color = ok ? "var(--green)" : "var(--red)";
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 70px", gap: 14, alignItems: "center", padding: "11px 0", borderBottom: "1px solid var(--line)" }}>
+    <div className="metric-row" style={{ display: "grid", gridTemplateColumns: "150px 1fr 70px", gap: 14, alignItems: "center", padding: "11px 0", borderBottom: "1px solid var(--line)" }}>
       <span className="eyebrow" style={{ color: "var(--muted)" }}>{label}</span>
       <div style={{ background: "var(--paper)", borderRadius: 99, height: 8, overflow: "hidden" }}>
         <div style={{ width: pct + "%", height: "100%", background: color, borderRadius: 99, transition: "width 1s cubic-bezier(0.2,0.8,0.2,1)" }} />
@@ -129,7 +166,7 @@ function RankLadder({ rivals, youName }) {
       </div>
       <div role="table" aria-label="Local competitor standings">
         {rivals.map((r, i) => (
-          <div key={i} style={{
+          <div className="rank-row" key={i} style={{
             display: "grid", gridTemplateColumns: "34px 1fr 64px 78px", gap: 10, alignItems: "center",
             padding: "10px 12px", borderRadius: 6, marginBottom: 4,
             background: r.you ? "rgba(217,43,33,0.06)" : "transparent",
@@ -227,15 +264,10 @@ function ActionPlan({ plan }) {
   );
 }
 
-function LeadModal({ open, onClose, businessName, onSubmit }) {
-  const [form, setForm] = useState({ name: "", business: "", phone: "", email: "", notes: "" });
+function LeadModal({ onClose, businessName, onSubmit }) {
+  const [form, setForm] = useState({ name: "", business: businessName || "", phone: "", email: "", notes: "" });
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState("");
-
-  useEffect(() => { setForm((f) => ({ ...f, business: businessName || f.business })); }, [businessName]);
-  useEffect(() => { if (open) { setSent(false); setErr(""); } }, [open]);
-
-  if (!open) return null;
 
   const submit = () => {
     if (!form.name.trim()) { setErr("Enter your name so we know who to ask for."); return; }
@@ -465,63 +497,79 @@ export default function App() {
     : 0;
 
   return (
-    <div style={{ minHeight: "100vh" }}>
-      {/* header */}
-      <header className="no-print" style={{ borderBottom: "2px solid var(--ink)", background: "var(--surface)" }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "18px 20px", display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-          <div style={{ fontFamily: "var(--sans)", fontWeight: 900, fontSize: 20, letterSpacing: "-0.01em" }}>
-            REP<span style={{ color: "var(--red)" }}>BLAZE</span>
-          </div>
-          <div className="eyebrow" style={{ fontSize: 10 }}>
-            {mapsReady ? "Profile audit" : <span style={{ animation: "blink 1.2s infinite" }}>Loading…</span>}
-          </div>
+    <div className="site-shell" id="top">
+      <header className="site-header no-print">
+        <div className="nav-shell">
+          <a className="brand" href="#top" aria-label="RepBlaze home">
+            REP<span>BLAZE</span><i aria-hidden="true" />
+          </a>
+          <nav className="desktop-nav" aria-label="Main navigation">
+            <a href="#services">What we do</a>
+            <a href="#process">How it works</a>
+            <a href="#audit">Free audit</a>
+          </nav>
+          <button className="nav-cta" onClick={() => setModalOpen(true)}>Talk to us</button>
         </div>
       </header>
 
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: "40px 20px 80px" }}>
-        {/* hero */}
-        <section className="no-print" style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: "clamp(30px, 6vw, 44px)", fontWeight: 900, lineHeight: 1.08, letterSpacing: "-0.02em", margin: "0 0 10px" }}>
-            Your Google profile,<br />graded like an <span style={{ color: "var(--red)" }}>inspection.</span>
-          </h1>
-          <p style={{ fontSize: 16, color: "var(--muted)", margin: 0, maxWidth: 480, lineHeight: 1.6 }}>
-            Free instant audit of any local business — real data from Google, ranked against the competitors near you. No signup.
-          </p>
-        </section>
+      <main>
+        <section className="hero no-print">
+          <div className="hero-copy">
+            <div className="eyebrow orange">Local visibility · reputation · automation</div>
+            <h1>Get found.<br />Get <span>chosen.</span><br />Keep the customer.</h1>
+            <p className="hero-lede">
+              RepBlaze turns your online presence into a managed growth system — stronger Google visibility, fresh reviews, better follow-up, and less work falling through the cracks.
+            </p>
+            <div className="hero-actions">
+              <a className="btn-primary" href="#audit">Run my free audit</a>
+              <a className="btn-ghost" href="#services">See what we handle</a>
+            </div>
+            <div className="capability-line" aria-label="RepBlaze capabilities">
+              <span>Google Profile</span>
+              <span>Review Growth</span>
+              <span>Local SEO</span>
+              <span>AI Workflows</span>
+            </div>
+          </div>
 
-        {/* search */}
-        <section className="card no-print" style={{ marginBottom: 24 }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>Business name + city / state</div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <input className="text-input" style={{ flex: 1, minWidth: 200 }}
+          <section className="audit-panel metal-panel" id="audit" aria-labelledby="audit-title">
+            <div className="panel-status">
+              <span><i className={mapsReady ? "status-live" : "status-wait"} /> {mapsReady ? "Live Google data" : "Connecting to Google"}</span>
+              <strong>FREE</strong>
+            </div>
+            <div className="eyebrow">RepBlaze visibility check</div>
+            <h2 id="audit-title">See what customers see.</h2>
+            <p>Find your business, get a profile grade, and see how you stack up against nearby competitors. No signup.</p>
+            <label className="eyebrow audit-label" htmlFor="business-search">Business name + city / state</label>
+            <input id="business-search" className="text-input audit-input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && runAudit()}
               placeholder="e.g. Dream of Sneakerz, St. Joseph MO"
               aria-label="Business name and city" />
-            <button className="btn-primary" onClick={runAudit} disabled={loading || !mapsReady}>
-              {loading ? "Auditing…" : "Run audit"}
+            <button className="btn-primary audit-button" onClick={runAudit} disabled={loading || !mapsReady}>
+              {loading ? "Running inspection…" : "Audit my business"}
             </button>
-          </div>
-          {error && <div style={{ marginTop: 10, color: "var(--red)", fontSize: 14 }}>{error}</div>}
+            {error && <div className="form-error" role="alert">{error}</div>}
+            <div className="audit-note">Live profile data <b>·</b> Local competitor check <b>·</b> Clear next steps</div>
+          </section>
         </section>
 
         {loading && (
-          <div className="card" style={{ textAlign: "center", fontFamily: "var(--mono)", fontSize: 13, color: "var(--muted)" }}>
-            <span style={{ animation: "blink 1s infinite" }}>Pulling live Google data…</span>
+          <div className="report-shell">
+            <div className="card loading-card">
+              <span>Pulling live Google data and building your report…</span>
+            </div>
           </div>
         )}
 
-        {/* ============ REPORT ============ */}
         {result && (
-          <div ref={reportRef} style={{ scrollMarginTop: 20 }}>
-            {/* print header */}
+          <div ref={reportRef} className="report-shell" style={{ scrollMarginTop: 92 }}>
             <div className="print-only" style={{ marginBottom: 20, paddingBottom: 12, borderBottom: "3px solid var(--red)" }}>
               <div style={{ fontWeight: 900, fontSize: 20 }}>REPBLAZE — PROFILE AUDIT REPORT</div>
               <div style={{ fontFamily: "var(--mono)", fontSize: 12, marginTop: 4 }}>{result.name} · {new Date().toLocaleDateString()}</div>
             </div>
 
-            {/* grade card */}
             <section className="card rise" style={{ marginBottom: 16, display: "flex", gap: 26, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 220 }}>
                 <div className="eyebrow" style={{ marginBottom: 6 }}>Audit result</div>
@@ -532,10 +580,8 @@ export default function App() {
               <GradeStamp grade={result.grade} score={result.score} />
             </section>
 
-            {/* rank ladder — the "see it" moment */}
             <RankLadder rivals={result.rivals} youName={result.name} />
 
-            {/* metrics */}
             <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.15s" }}>
               <div className="eyebrow" style={{ marginBottom: 10 }}>Profile readings — live Google data</div>
               <MetricRow label="Star rating" value={result.rating} max={5}
@@ -558,38 +604,106 @@ export default function App() {
 
             <ActionPlan plan={result.plan} />
 
-            {/* findings */}
             <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.25s" }}>
               <div className="eyebrow" style={{ marginBottom: 6 }}>Findings — tap to expand</div>
               {result.issues.map((i, idx) => <Finding key={idx} text={i.text} level={i.level} />)}
             </section>
 
-            {/* CTA */}
-            <section className="card rise no-print" style={{ animationDelay: "0.3s", borderTop: "3px solid var(--red)" }}>
-              <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>Want this handled for you?</div>
+            <section className="card rise no-print result-cta" style={{ animationDelay: "0.3s" }}>
+              <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>Want RepBlaze to close these gaps?</div>
               <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.65, margin: "0 0 18px" }}>
-                RepBlaze manages your Google profile, automates review collection, responds to every review, and tracks the competitors above — so you can run your business.
+                We manage the profile, review flow, responses, and local visibility system behind this report — then track what improves.
               </p>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button className="btn-primary" onClick={() => setModalOpen(true)}>Get my fix plan</button>
+              <div className="button-row">
+                <button className="btn-primary" onClick={() => setModalOpen(true)}>Build my fix plan</button>
                 <button className="btn-ghost" onClick={() => window.print()}>Print / save report</button>
               </div>
             </section>
           </div>
         )}
 
-        {!loading && !result && !error && (
-          <p className="no-print" style={{ textAlign: "center", color: "var(--faint)", fontSize: 14 }}>
-            Enter a business above to run a free audit.
-          </p>
-        )}
+        <section className="system-band no-print" aria-label="RepBlaze outcomes">
+          <div className="section-shell band-grid">
+            <div>
+              <div className="eyebrow orange">The RepBlaze system</div>
+              <h2>Google creates the moment.<br />We help you win it.</h2>
+            </div>
+            <div className="outcome-grid">
+              <div><strong>01</strong><span>Be visible when they search</span></div>
+              <div><strong>02</strong><span>Look like the clear choice</span></div>
+              <div><strong>03</strong><span>Make the next step easy</span></div>
+              <div><strong>04</strong><span>Follow up without chasing</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section className="content-section no-print" id="services">
+          <div className="section-shell">
+            <div className="section-heading">
+              <div className="eyebrow orange">What we do</div>
+              <h2>One growth system.<br />Four jobs handled.</h2>
+              <p>Most local businesses do not have a visibility problem or a follow-up problem. They have both. RepBlaze connects the full path from search to sale.</p>
+            </div>
+            <div className="offer-grid">
+              {OFFERS.map((offer) => (
+                <article className="offer-card metal-panel" key={offer.number}>
+                  <div className="offer-top"><span>{offer.number}</span><strong>{offer.outcome}</strong></div>
+                  <h3>{offer.title}</h3>
+                  <p>{offer.copy}</p>
+                  <ul>
+                    {offer.items.map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="process-section no-print" id="process">
+          <div className="section-shell process-layout">
+            <div className="section-heading process-heading">
+              <div className="eyebrow orange">How it works</div>
+              <h2>Diagnose.<br />Build.<br />Manage.</h2>
+              <p>No mystery marketing. We identify the leaks, install the right system, and keep the machine moving.</p>
+              <a className="text-link" href="#audit">Start with the free audit <span>→</span></a>
+            </div>
+            <div className="process-list">
+              {PROCESS.map((step) => (
+                <article key={step.number}>
+                  <span>{step.number}</span>
+                  <div><h3>{step.title}</h3><p>{step.copy}</p></div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="final-cta no-print">
+          <div className="section-shell final-cta-inner metal-panel">
+            <div>
+              <div className="eyebrow orange">Built for local businesses</div>
+              <h2>Your next customer is already comparing you.</h2>
+              <p>See the gap for yourself. Then decide if you want RepBlaze to handle it.</p>
+            </div>
+            <div className="button-row cta-buttons">
+              <a className="btn-primary" href="#audit">Audit my business</a>
+              <button className="btn-ghost" onClick={() => setModalOpen(true)}>Talk to RepBlaze</button>
+            </div>
+          </div>
+        </section>
       </main>
 
-      <footer className="no-print" style={{ borderTop: "1px solid var(--line)", padding: "20px", textAlign: "center" }}>
-        <span className="eyebrow" style={{ fontSize: 10 }}>RepBlaze · Local reputation, managed · St. Joseph, MO</span>
+      <footer className="site-footer no-print">
+        <div className="section-shell footer-grid">
+          <div className="brand footer-brand">REP<span>BLAZE</span><i aria-hidden="true" /></div>
+          <div>Local visibility, reputation, and automation systems.</div>
+          <div>St. Joseph, Missouri · A Dream Chasers Unlimited brand</div>
+        </div>
       </footer>
 
-      <LeadModal open={modalOpen} onClose={() => setModalOpen(false)} businessName={result?.name} onSubmit={handleLead} />
+      {modalOpen && (
+        <LeadModal onClose={() => setModalOpen(false)} businessName={result?.name} onSubmit={handleLead} />
+      )}
     </div>
   );
 }

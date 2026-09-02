@@ -72,9 +72,9 @@ export default async function handler(req, res) {
   const target = normalizeUrl(req.query.url);
   if (!target) return res.status(400).json({ ok: false, error: "INVALID_URL" });
 
-  let html = "";
-  let finalUrl = target.href;
-  let status = 0;
+  let html;
+  let finalUrl;
+  let status;
 
   try {
     const ctrl = new AbortController();
@@ -99,5 +99,40 @@ export default async function handler(req, res) {
     });
   }
 
-  if (status >= 400)
-    return res.status(200).json({ ok:
+  if (status >= 400) {
+    return res.status(200).json({
+      ok: false,
+      error: "HTTP_ERROR",
+      status,
+      finalUrl,
+    });
+  }
+
+  const titleTag = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+  const title = titleTag ? strip(titleTag[1]) : "";
+  const description =
+    metaContent(html, "name", "description") ||
+    metaContent(html, "property", "og:description");
+  const canonicalTag = (html.match(/<link\b[^>]*rel=["'][^"']*canonical[^"']*["'][^>]*>/i) || [""])[0];
+  const canonical = canonicalTag ? attr(canonicalTag, "href") : "";
+  const h1Count = (html.match(/<h1\b/gi) || []).length;
+  const visibleText = strip(html);
+  const wordCount = visibleText ? visibleText.split(/\s+/).length : 0;
+  const hasViewport = !!metaContent(html, "name", "viewport");
+  const hasLocalBusinessSchema = /["']@type["']\s*:\s*["'][^"']*LocalBusiness/i.test(html);
+
+  return res.status(200).json({
+    ok: true,
+    status,
+    finalUrl,
+    title,
+    description,
+    canonical,
+    h1Count,
+    wordCount,
+    isThin: wordCount < THIN_WORD_FLOOR,
+    hasViewport,
+    hasLocalBusinessSchema,
+    isHttps: new URL(finalUrl).protocol === "https:",
+  });
+}
