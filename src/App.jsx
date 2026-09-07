@@ -67,6 +67,26 @@ const FINDING_DETAIL = {
     why: "Nearby businesses in your category show stronger review numbers, which pulls customers toward them when they compare options side by side.",
     fix: "RepBlaze tracks competitor activity and runs consistent review collection to close the gap.",
   },
+  "Site not using HTTPS": {
+    why: "Browsers mark sites without HTTPS as not secure, and that warning can stop a ready customer before the page even loads.",
+    fix: "RepBlaze gets a valid certificate installed and every page pointed at the secure version.",
+  },
+  "No structured business data on site": {
+    why: "Without business data marked up on the site, search engines have to guess at your name, address, and hours instead of reading them directly.",
+    fix: "RepBlaze adds structured business data so your site reinforces the profile customers find.",
+  },
+  "Thin website content": {
+    why: "A page with very little content gives search engines almost nothing to work with, so competitors with fuller pages tend to surface first.",
+    fix: "RepBlaze builds out the service and location content that gives your site something to rank on.",
+  },
+  "Missing page heading (H1)": {
+    why: "With no main heading, the page never states plainly what the business does, which weakens both search relevance and first impressions.",
+    fix: "RepBlaze sets a clear, specific heading on every page so the offer lands immediately.",
+  },
+  "Missing meta description": {
+    why: "When the description is missing, search engines write your search snippet for you, and the result rarely sells the business well.",
+    fix: "RepBlaze writes descriptions that turn search impressions into actual visits.",
+  },
 };
 
 const FINDING_OK = {
@@ -75,6 +95,40 @@ const FINDING_OK = {
   "Website linked": "Your website is connected — good.",
   "Photo gallery active": "Solid photo presence. Fresh uploads keep it working.",
   "Ahead of nearby competitors": "You're outperforming nearby businesses in your category. Worth defending.",
+  "HTTPS enabled": "Your site loads securely. Worth keeping the certificate current.",
+  "Structured data present": "Structured business data is on the site — good. Keep it matched to your profile.",
+  "Solid page content": "There's real content on the page for search engines to work with.",
+  "Page heading in place": "The page states what the business does. Keep it aligned to what customers search.",
+  "Meta description set": "Your search snippet is under your control rather than auto-generated.",
+};
+
+/* Maps a /api/scan result onto the same finding shape the audit uses. */
+const siteHost = (url) => {
+  try { return new URL(url).hostname.replace(/^www[.]/, ""); } catch { return url; }
+};
+
+const siteFindings = (scan) => {
+  if (!scan || scan.ok !== true) return [];
+  const out = [];
+
+  if (scan.isHttps === false) out.push({ text: "Site not using HTTPS", level: "critical" });
+  else if (scan.isHttps === true) out.push({ text: "HTTPS enabled", level: "ok" });
+
+  if (scan.hasLocalBusinessSchema === false) out.push({ text: "No structured business data on site", level: "warning" });
+  else if (scan.hasLocalBusinessSchema === true) out.push({ text: "Structured data present", level: "ok" });
+
+  if (scan.isThin === true) out.push({ text: "Thin website content", level: "warning" });
+  else if (scan.isThin === false) out.push({ text: "Solid page content", level: "ok" });
+
+  if (scan.h1Count === 0) out.push({ text: "Missing page heading (H1)", level: "warning" });
+  else if (scan.h1Count > 0) out.push({ text: "Page heading in place", level: "ok" });
+
+  if ("description" in scan) {
+    if (!scan.description) out.push({ text: "Missing meta description", level: "warning" });
+    else out.push({ text: "Meta description set", level: "ok" });
+  }
+
+  return out;
 };
 
 const OFFERS = [
@@ -327,6 +381,8 @@ export default function App() {
   const [error, setError] = useState("");
   const [mapsReady, setMapsReady] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [siteScan, setSiteScan] = useState(null);
+  const [siteScanLoading, setSiteScanLoading] = useState(false);
   const reportRef = useRef(null);
 
   useEffect(() => {
@@ -361,6 +417,8 @@ export default function App() {
     setLoading(true);
     setError("");
     setResult(null);
+    setSiteScan(null);
+    setSiteScanLoading(false);
 
     try {
       const { places } = await window.google.maps.places.Place.searchByText({
@@ -384,6 +442,22 @@ export default function App() {
       const hasHours = !!place.regularOpeningHours;
       const hasWebsite = !!place.websiteURI;
       const hasPhone = !!place.nationalPhoneNumber;
+
+      // ---- Website scan: fired, never awaited — must not delay the profile report ----
+      if (hasWebsite) {
+        try {
+          setSiteScanLoading(true);
+          fetch("/api/scan?url=" + encodeURIComponent(place.websiteURI))
+            .then((r) => r.json())
+            .then((data) => setSiteScan(data))
+            .catch(() => setSiteScan({ ok: false }))
+            .finally(() => setSiteScanLoading(false));
+        } catch {
+          // site scan is optional — never blocks the audit
+          setSiteScan({ ok: false });
+          setSiteScanLoading(false);
+        }
+      }
 
       // Newest review visible among the profile's top reviews (API returns up to 5).
       let lastReviewDays = null;
@@ -483,7 +557,7 @@ export default function App() {
         name: place.displayName, address: place.formattedAddress,
         status: place.businessStatus || "OPERATIONAL",
         rating, reviewCount, photoCount, photoCapped,
-        hasHours, hasWebsite, hasPhone, lastReviewDays,
+        hasHours, hasWebsite, hasPhone, lastReviewDays, website: place.websiteURI,
         score: s, grade: gradeOf(s), issues, plan: plan.slice(0, 5), rivals,
       });
     } catch (e) {
@@ -601,6 +675,23 @@ export default function App() {
                 </div>
               )}
             </section>
+
+            {result.hasWebsite && (
+              <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.18s" }}>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>
+                  Website scan — {siteHost(result.website)}
+                </div>
+                {siteScanLoading ? (
+                  <p style={{ fontSize: 14, color: "var(--muted)", margin: "6px 0 2px" }}>Scanning your website…</p>
+                ) : siteFindings(siteScan).length ? (
+                  siteFindings(siteScan).map((f, idx) => <Finding key={idx} text={f.text} level={f.level} />)
+                ) : (
+                  <p style={{ fontSize: 14, color: "var(--faint)", margin: "6px 0 2px" }}>
+                    Couldn't fully scan this site — may need manual review
+                  </p>
+                )}
+              </section>
+            )}
 
             <ActionPlan plan={result.plan} />
 
