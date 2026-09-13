@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RepBlaze Content Approval Queue</title>
+  <style>
+    :root{color-scheme:dark;--bg:#090a0c;--panel:#14161a;--line:#30333a;--muted:#9da0a6;--orange:#ff6a00;--green:#8cff3d;--red:#ff7d87}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f4f4f5;font-family:Inter,ui-sans-serif,system-ui,sans-serif}.wrap{max-width:1180px;margin:auto;padding:28px 18px 70px}.top{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;flex-wrap:wrap}.kicker{color:var(--orange);font-weight:900;letter-spacing:.16em;font-size:12px}h1{font-size:clamp(34px,6vw,58px);line-height:1;margin:8px 0}.muted{color:var(--muted)}button,input,textarea{font:inherit}button{cursor:pointer}.btn{border-radius:10px;padding:11px 15px;font-weight:900;border:1px solid var(--line);background:#26292f;color:#fff}.primary{background:var(--orange);color:#08090a;border-color:var(--orange)}.approve{background:var(--green);color:#071005;border-color:var(--green)}.reject{background:#3a171a;color:#ffb1b7;border-color:#7a252c}.actions,.filters,.card-actions{display:flex;gap:9px;flex-wrap:wrap}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:22px 0}.stat,.card,.login{background:linear-gradient(180deg,#15171b,#101114);border:1px solid var(--line);border-radius:16px;padding:18px}.stat strong{display:block;color:var(--orange);font-size:28px}.filter{border-radius:999px;padding:8px 12px;background:#15171b;color:#aaadb3;border:1px solid #2d3036;font-size:12px;font-weight:900}.filter.active{color:#ff7a1a;border-color:var(--orange);background:#20150d}.queue{display:grid;gap:18px;margin-top:18px}.card-head{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px}.pill{display:inline-block;border:1px solid #383c43;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:900;margin-right:6px}.platform{background:var(--orange);color:#090a0c;border-color:var(--orange)}label{display:block;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin:12px 0 6px}input,textarea{width:100%;background:#0b0c0e;color:#f3f4f5;border:1px solid #34373e;border-radius:9px;padding:11px 12px;line-height:1.5}textarea{min-height:84px;resize:vertical}.post{min-height:160px}.card-actions{margin-top:16px}.error{background:#361417;color:#ffb8be;border:1px solid #7b2730;padding:12px;border-radius:10px;margin:18px 0}.empty{padding:30px;text-align:center;color:#8e9197;border:1px dashed #34373d;border-radius:14px}.login{max-width:520px;margin:12vh auto 0;padding:28px}.login form{display:grid;gap:12px}.back{display:inline-block;margin-top:18px;color:#aaa;text-decoration:none}.hidden{display:none}@media(max-width:620px){.wrap{padding-top:20px}.btn{flex:1}.card{padding:15px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section id="login" class="login">
+      <div class="kicker">REPBLAZE // OWNER OPS</div>
+      <h1>Content Approval Queue</h1>
+      <p class="muted">Enter the owner key. It is kept only for this browser session.</p>
+      <form id="loginForm">
+        <input id="keyInput" type="password" placeholder="Owner key" autocomplete="off" autofocus />
+        <button class="btn primary">Open Queue</button>
+      </form>
+      <a class="back" href="/">← Back to RepBlaze</a>
+    </section>
+
+    <section id="app" class="hidden">
+      <div class="top">
+        <div><div class="kicker">REPBLAZE // CONTENT ENGINE</div><h1>Approval Queue</h1><p class="muted">Generate the week. Approve what ships. Reject what does not.</p></div>
+        <div class="actions"><button id="generate" class="btn primary">Generate Next Batch</button><button id="refresh" class="btn">Refresh</button><button id="lock" class="btn">Lock</button></div>
+      </div>
+      <div id="error"></div>
+      <div class="stats" id="stats"></div>
+      <div class="filters" id="filters"></div>
+      <div class="queue" id="queue"></div>
+    </section>
+  </main>
+<script>
+const API='https://ixqzawhedscwggbhgwtz.supabase.co/functions/v1/repblaze-content';
+const statuses=['READY_FOR_REVIEW','APPROVED','REJECTED','SCHEDULED','PUBLISHED','ALL'];
+let key=sessionStorage.getItem('repblaze_admin_key')||'';let items=[];let filter='READY_FOR_REVIEW';
+const $=s=>document.querySelector(s);const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+async function api(body){const r=await fetch(API,{method:body?'POST':'GET',headers:{'content-type':'application/json','x-repblaze-key':key},body:body?JSON.stringify(body):undefined});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)throw new Error(d.error||'Request failed');return d}
+function showError(e=''){ $('#error').innerHTML=e?`<div class="error">${esc(e)}</div>`:'' }
+async function load(){showError();try{const d=await api();items=d.items||[];render()}catch(e){if(e.message==='UNAUTHORIZED'){sessionStorage.removeItem('repblaze_admin_key');key='';gate()}else showError(e.message)}}
+function gate(){const on=!!key;$('#login').classList.toggle('hidden',on);$('#app').classList.toggle('hidden',!on);if(on)load()}
+function counts(){return items.reduce((a,x)=>(a[x.status]=(a[x.status]||0)+1,a),{})}
+function render(){const c=counts();$('#stats').innerHTML=[['Needs Review',c.READY_FOR_REVIEW||0],['Approved',c.APPROVED||0],['Scheduled',c.SCHEDULED||0],['Published',c.PUBLISHED||0]].map(([l,v])=>`<div class="stat"><strong>${v}</strong><span class="muted">${l}</span></div>`).join('');$('#filters').innerHTML=statuses.map(s=>`<button class="filter ${s===filter?'active':''}" data-filter="${s}">${s.replaceAll('_',' ')} (${s==='ALL'?items.length:(c[s]||0)})</button>`).join('');document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;render()});const visible=filter==='ALL'?items:items.filter(x=>x.status===filter);$('#queue').innerHTML=visible.length?visible.map(card).join(''):'<div class="empty">No posts in this lane. Generate a batch or switch filters.</div>';bindCards()}
+function card(x){return `<article class="card" data-id="${x.id}"><div class="card-head"><div><span class="pill platform">${esc(x.platform)}</span><span class="pill">${esc(x.status.replaceAll('_',' '))}</span></div><span class="muted">${x.scheduled_for?new Date(x.scheduled_for).toLocaleString():'Not scheduled'}</span></div><label>Title</label><input data-field="title" value="${esc(x.title)}"><label>Hook</label><textarea data-field="hook">${esc(x.hook)}</textarea><label>Post</label><textarea class="post" data-field="body">${esc(x.body)}</textarea><label>CTA</label><textarea data-field="cta">${esc(x.cta)}</textarea><label>Graphic Brief</label><textarea data-field="graphic_brief">${esc(x.graphic_brief)}</textarea><div class="card-actions"><button class="btn save">Save Edit</button><button class="btn approve">Approve</button><button class="btn reject">Reject</button></div></article>`}
+function draft(el){const out={};el.querySelectorAll('[data-field]').forEach(n=>out[n.dataset.field]=n.value);return out}
+async function update(id,patch){showError();try{await api({action:'update',id,...patch});await load()}catch(e){showError(e.message)}}
+function bindCards(){document.querySelectorAll('.card').forEach(el=>{const id=el.dataset.id;el.querySelector('.save').onclick=()=>update(id,draft(el));el.querySelector('.approve').onclick=()=>update(id,{...draft(el),status:'APPROVED'});el.querySelector('.reject').onclick=()=>update(id,{status:'REJECTED',rejection_notes:prompt('Why reject this post?')||''})})}
+$('#loginForm').onsubmit=e=>{e.preventDefault();key=$('#keyInput').value.trim();if(!key)return;sessionStorage.setItem('repblaze_admin_key',key);$('#keyInput').value='';gate()};
+$('#generate').onclick=async()=>{showError();$('#generate').disabled=true;$('#generate').textContent='Working…';try{await api({action:'generate'});filter='READY_FOR_REVIEW';await load()}catch(e){showError(e.message)}finally{$('#generate').disabled=false;$('#generate').textContent='Generate Next Batch'}};
+$('#refresh').onclick=load;$('#lock').onclick=()=>{sessionStorage.removeItem('repblaze_admin_key');key='';gate()};gate();
+</script>
+</body>
+</html>
