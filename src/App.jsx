@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 
-/* ============================================================
-   CONFIG
-   ------------------------------------------------------------
-   LEAD_ENDPOINT: your RepBlaze Apps Script web-app /exec URL.
-   Leads POST here AND back up to localStorage — never lost.
-   ============================================================ */
-const LEAD_ENDPOINT = "https://script.google.com/macros/s/AKfycbxr2fJSrhlcBe7qm0b1ydjYN94YBgBEPVkYXlKFxwuaWFvzPu8gYmEtuJ3yXmvYNO3l7g/exec";
+/* Public project URL + publishable key. RLS limits anonymous traffic to validated inserts. */
+const SUPABASE_URL = "https://ixqzawhedscwggbhgwtz.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Z5l9fxifrirlyCU5wHgJfA_fKkZjc4e";
+const LEAD_ENDPOINT = `${SUPABASE_URL}/rest/v1/leads`;
 const daysAgo = (d) => Math.floor((Date.now() - d.getTime()) / 86400000);
+
+const newSubmissionId = () => {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  return `lead-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
 
 const gradeOf = (score) => {
   if (score >= 85) return "A";
@@ -164,8 +166,15 @@ const OFFERS = [
 
 const PROCESS = [
   { number: "1", title: "Expose the gaps", copy: "Run the free audit. We compare your live profile data with nearby competitors and show where attention is leaking." },
-  { number: "2", title: "Build the system", copy: "We fix the foundation, install the review and follow-up flow, and connect the pieces your business actually needs." },
-  { number: "3", title: "Manage the momentum", copy: "RepBlaze keeps the system active, watches the numbers, and adjusts the next move as the market changes." },
+  { number: "2", title: "Install the system", copy: "We fix the foundation and connect review requests, response drafts, owner approvals, and recovery alerts." },
+  { number: "3", title: "Manage the momentum", copy: "RepBlaze monitors the work, reports the numbers, and adjusts the next move every month." },
+];
+
+const REPUTATION_LOOP = [
+  { number: "01", title: "Request", copy: "Every completed job becomes a consistent, policy-safe request for honest feedback." },
+  { number: "02", title: "Respond", copy: "New reviews receive an on-brand response draft instead of sitting unanswered." },
+  { number: "03", title: "Recover", copy: "Negative feedback creates an owner alert and a clear follow-up task." },
+  { number: "04", title: "Improve", copy: "A monthly scorecard shows review growth, response speed, and the next visibility gap." },
 ];
 
 /* ---------- small components ---------- */
@@ -319,15 +328,31 @@ function ActionPlan({ plan }) {
 }
 
 function LeadModal({ onClose, businessName, onSubmit }) {
-  const [form, setForm] = useState({ name: "", business: businessName || "", phone: "", email: "", notes: "" });
+  const [form, setForm] = useState({
+    name: "", business: businessName || "", phone: "", email: "", notes: "",
+    consentSms: false, consentEmail: false,
+  });
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
   const [err, setErr] = useState("");
+  const submissionId = useRef(newSubmissionId());
 
-  const submit = () => {
+  const submit = async () => {
+    if (sending) return;
     if (!form.name.trim()) { setErr("Enter your name so we know who to ask for."); return; }
     if (!form.phone.trim() && !form.email.trim()) { setErr("Add a phone or email so we can reach you."); return; }
-    onSubmit(form);
-    setSent(true);
+    if (form.phone.trim() && !form.consentSms) { setErr("Please confirm we may contact you by text or remove the phone number."); return; }
+    if (form.email.trim() && !form.consentEmail) { setErr("Please confirm we may contact you by email or remove the email address."); return; }
+    setErr("");
+    setSending(true);
+    try {
+      await onSubmit({ ...form, submissionId: submissionId.current });
+      setSent(true);
+    } catch {
+      setErr("We couldn't send your request. Please try again — your information was not stored in this browser.");
+    } finally {
+      setSending(false);
+    }
   };
 
   const fields = [
@@ -345,7 +370,7 @@ function LeadModal({ onClose, businessName, onSubmit }) {
           <>
             <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 4 }}>Get your fix plan</div>
             <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 18, lineHeight: 1.55 }}>
-              Leave your info and we'll reach out with a plan and pricing for {form.business || "your business"}.
+              We’ll review the gaps and show you what the $99/month managed system should handle for {form.business || "your business"}.
             </div>
             {fields.map((f) => (
               <div key={f.k} style={{ marginBottom: 12 }}>
@@ -355,8 +380,24 @@ function LeadModal({ onClose, businessName, onSubmit }) {
                   onKeyDown={(e) => e.key === "Enter" && submit()} />
               </div>
             ))}
+            {form.phone.trim() && (
+              <label className="consent-row">
+                <input type="checkbox" checked={form.consentSms}
+                  onChange={(e) => setForm({ ...form, consentSms: e.target.checked })} />
+                <span>RepBlaze may text me about this request. Message and data rates may apply. Reply STOP to opt out.</span>
+              </label>
+            )}
+            {form.email.trim() && (
+              <label className="consent-row">
+                <input type="checkbox" checked={form.consentEmail}
+                  onChange={(e) => setForm({ ...form, consentEmail: e.target.checked })} />
+                <span>RepBlaze may email me about this request. I can unsubscribe at any time.</span>
+              </label>
+            )}
             {err && <div style={{ color: "var(--red)", fontSize: 13, marginBottom: 10 }}>{err}</div>}
-            <button className="btn-primary" style={{ width: "100%", marginTop: 4 }} onClick={submit}>Send it</button>
+            <button className="btn-primary" style={{ width: "100%", marginTop: 4 }} onClick={submit} disabled={sending}>
+              {sending ? "Sending…" : "Send my fix-plan request"}
+            </button>
           </>
         ) : (
           <div style={{ textAlign: "center", padding: "16px 0" }}>
@@ -399,16 +440,44 @@ export default function App() {
     if (result && reportRef.current) reportRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [result]);
 
-  const handleLead = (form) => {
-    const lead = { ...form, source: "audit-tool", auditedBusiness: result?.name || "", score: result?.score ?? "", ts: new Date().toISOString() };
-    // Backup first — a lead is never lost even if the endpoint is down.
-    try {
-      const stash = JSON.parse(localStorage.getItem("repblaze_leads") || "[]");
-      stash.push(lead);
-      localStorage.setItem("repblaze_leads", JSON.stringify(stash));
-    } catch { /* storage full/blocked — endpoint POST below still fires */ }
-    if (LEAD_ENDPOINT) {
-      fetch(LEAD_ENDPOINT, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain" }, body: JSON.stringify(lead) }).catch(() => {});
+  const handleLead = async (form) => {
+    const params = new URLSearchParams(window.location.search);
+    const payload = {
+      name: form.name.trim().slice(0, 120),
+      business_name: form.business.trim().slice(0, 160) || null,
+      phone: form.phone.trim().slice(0, 40) || null,
+      email: form.email.trim().toLowerCase().slice(0, 254) || null,
+      notes: form.notes.trim().slice(0, 2000) || null,
+      source: params.get("utm_source")?.slice(0, 120) || (result ? "audit-tool" : "landing-page"),
+      medium: params.get("utm_medium")?.slice(0, 120) || null,
+      campaign: params.get("utm_campaign")?.slice(0, 160) || null,
+      content: params.get("utm_content")?.slice(0, 160) || null,
+      landing_page: `${window.location.origin}${window.location.pathname}`.slice(0, 500),
+      referrer: document.referrer.slice(0, 500) || null,
+      session_id: form.submissionId,
+      first_touch_source: params.get("utm_source")?.slice(0, 120) || "direct",
+      last_touch_source: params.get("utm_source")?.slice(0, 120) || "direct",
+      audited_business: result?.name?.slice(0, 160) || null,
+      audit_score: Number.isInteger(result?.score) ? result.score : null,
+      consent_sms: Boolean(form.phone.trim() && form.consentSms),
+      consent_email: Boolean(form.email.trim() && form.consentEmail),
+      raw_payload: { client_version: "landing-v2", has_audit: Boolean(result) },
+    };
+
+    const response = await fetch(LEAD_ENDPOINT, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    // A retry with the same submission ID means the original request already landed.
+    if (!response.ok && response.status !== 409) {
+      throw new Error(`Lead submission failed: ${response.status}`);
     }
   };
 
@@ -578,31 +647,30 @@ export default function App() {
             REP<span>BLAZE</span><i aria-hidden="true" />
           </a>
           <nav className="desktop-nav" aria-label="Main navigation">
-            <a href="#services">What we do</a>
-            <a href="#process">How it works</a>
+            <a href="#system">The system</a>
+            <a href="#pricing">Pricing</a>
             <a href="#audit">Free audit</a>
           </nav>
-          <button className="nav-cta" onClick={() => setModalOpen(true)}>Talk to us</button>
+          <button className="nav-cta" onClick={() => setModalOpen(true)}>Get a fix plan</button>
         </div>
       </header>
 
       <main>
         <section className="hero no-print">
           <div className="hero-copy">
-            <div className="eyebrow orange">Local visibility · reputation · automation</div>
-            <h1>Get found.<br />Get <span>chosen.</span><br />Keep the customer.</h1>
+            <div className="eyebrow orange">Done-for-you reputation system for local businesses</div>
+            <h1>Win the search.<br />Earn the <span>trust.</span><br />Keep the customer.</h1>
             <p className="hero-lede">
-              RepBlaze turns your online presence into a managed growth system — stronger Google visibility, fresh reviews, better follow-up, and less work falling through the cracks.
+              RepBlaze installs and manages the workflow behind your Google profile: review requests, response drafts, issue recovery, and monthly visibility tracking — starting at $99/month.
             </p>
             <div className="hero-actions">
-              <a className="btn-primary" href="#audit">Run my free audit</a>
-              <a className="btn-ghost" href="#services">See what we handle</a>
+              <a className="btn-primary" href="#audit">Show me my reputation gaps</a>
+              <a className="btn-ghost" href="#pricing">See the $99 system</a>
             </div>
             <div className="capability-line" aria-label="RepBlaze capabilities">
-              <span>Google Profile</span>
-              <span>Review Growth</span>
-              <span>Local SEO</span>
-              <span>AI Workflows</span>
+              <span>Month-to-month</span>
+              <span>Human-approved responses</span>
+              <span>Owner-operated businesses</span>
             </div>
           </div>
 
@@ -713,7 +781,7 @@ export default function App() {
           </div>
         )}
 
-        <section className="system-band no-print" aria-label="RepBlaze outcomes">
+        <section className="system-band no-print" id="system" aria-label="RepBlaze outcomes">
           <div className="section-shell band-grid">
             <div>
               <div className="eyebrow orange">The RepBlaze system</div>
@@ -724,6 +792,29 @@ export default function App() {
               <div><strong>02</strong><span>Look like the clear choice</span></div>
               <div><strong>03</strong><span>Make the next step easy</span></div>
               <div><strong>04</strong><span>Follow up without chasing</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section className="loop-section no-print">
+          <div className="section-shell">
+            <div className="section-heading loop-heading">
+              <div className="eyebrow orange">The managed reputation loop</div>
+              <h2>A review is not the finish line.<br />It is the next trigger.</h2>
+              <p>Most tools hand you another inbox. RepBlaze turns customer feedback into a repeatable operating workflow, with you in control of what gets published.</p>
+            </div>
+            <div className="loop-grid">
+              {REPUTATION_LOOP.map((step) => (
+                <article key={step.number}>
+                  <span>{step.number}</span>
+                  <h3>{step.title}</h3>
+                  <p>{step.copy}</p>
+                </article>
+              ))}
+            </div>
+            <div className="approval-strip">
+              <div><span>DEFAULT MODE</span><strong>Draft → Approve → Act</strong></div>
+              <p>Automation earns trust. Responses and sensitive profile changes stay approval-first until the workflow proves dependable.</p>
             </div>
           </div>
         </section>
@@ -769,16 +860,41 @@ export default function App() {
           </div>
         </section>
 
+        <section className="pricing-section no-print" id="pricing">
+          <div className="section-shell pricing-shell">
+            <div className="pricing-copy">
+              <div className="eyebrow orange">Simple launch offer</div>
+              <h2>Managed outcomes.<br />Not another login.</h2>
+              <p>Software-only review tools are cheap. RepBlaze is priced for the work local owners do not have time to install, monitor, and improve.</p>
+              <div className="price-line"><strong>$99</strong><span>/ month</span></div>
+              <div className="setup-line">$349 one-time setup · Month-to-month</div>
+            </div>
+            <div className="pricing-card metal-panel">
+              <div className="eyebrow">RepBlaze managed reputation system</div>
+              <ul>
+                <li>Google Business Profile baseline and monthly checks</li>
+                <li>SMS and email review-request workflow</li>
+                <li>Review-response drafts with owner approval</li>
+                <li>Negative-feedback alert and recovery task</li>
+                <li>Monthly visibility and reputation scorecard</li>
+                <li>Direct owner support</li>
+              </ul>
+              <button className="btn-primary" onClick={() => setModalOpen(true)}>Get my fix plan</button>
+              <p className="price-note">Messaging usage and custom integrations are quoted separately. Honest feedback only—no review gating.</p>
+            </div>
+          </div>
+        </section>
+
         <section className="final-cta no-print">
           <div className="section-shell final-cta-inner metal-panel">
             <div>
               <div className="eyebrow orange">Built for local businesses</div>
               <h2>Your next customer is already comparing you.</h2>
-              <p>See the gap for yourself. Then decide if you want RepBlaze to handle it.</p>
+              <p>See the gap. Get the fix plan. Let RepBlaze run the system.</p>
             </div>
             <div className="button-row cta-buttons">
               <a className="btn-primary" href="#audit">Audit my business</a>
-              <button className="btn-ghost" onClick={() => setModalOpen(true)}>Talk to RepBlaze</button>
+              <button className="btn-ghost" onClick={() => setModalOpen(true)}>Get my $99 plan</button>
             </div>
           </div>
         </section>
