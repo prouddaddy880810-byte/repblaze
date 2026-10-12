@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";\nimport "./audit-v2.css";
 
 /* Public project URL + publishable key. RLS limits anonymous traffic to validated inserts. */
 const SUPABASE_URL = "https://ixqzawhedscwggbhgwtz.supabase.co";
@@ -715,13 +715,17 @@ export default function App() {
         )}
 
         {result && (
-          <div ref={reportRef} className="report-shell" style={{ scrollMarginTop: 92 }}>
+          <div ref={reportRef} className="report-shell audit-v2" style={{ scrollMarginTop: 92 }}>
+            <div className="audit-brandbar"><strong>REP<span>BLAZE</span></strong><small>LOCAL VISIBILITY INTELLIGENCE / AUDIT V2</small></div>
+            <div className="audit-cover"><div className="audit-kicker">COMPLIMENTARY BUSINESS AUDIT · {new Date().toLocaleDateString()}</div><h2>{result.name}<span> / Visibility Report</span></h2><div className="audit-cover-meta"><span>BUSINESS <b>{result.name}</b></span><span>LOCATION <b>{result.address}</b></span><span>PREPARED BY <b>RepBlaze</b></span></div></div>
+            <nav className="audit-toc no-print" aria-label="Audit report sections"><a href="#audit-snapshot"><em>00</em> Snapshot</a><a href="#audit-competition"><em>01</em> Competition</a><a href="#audit-evidence"><em>02</em> Evidence</a><a href="#audit-plan"><em>03</em> Action plan</a><a href="#audit-findings"><em>04</em> Findings</a></nav>
             <div className="print-only" style={{ marginBottom: 20, paddingBottom: 12, borderBottom: "3px solid var(--red)" }}>
               <div style={{ fontWeight: 900, fontSize: 20 }}>REPBLAZE — PROFILE AUDIT REPORT</div>
               <div style={{ fontFamily: "var(--mono)", fontSize: 12, marginTop: 4 }}>{result.name} · {new Date().toLocaleDateString()}</div>
             </div>
 
-            <section className="card rise" style={{ marginBottom: 16, display: "flex", gap: 26, alignItems: "center", flexWrap: "wrap" }}>
+            <div id="audit-snapshot" className="audit-section-head"><span>00</span><h3>Executive snapshot</h3></div>
+            <section className="card rise audit-snapshot" style={{ marginBottom: 16, display: "flex", gap: 26, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 220 }}>
                 <div className="eyebrow" style={{ marginBottom: 6 }}>Audit result</div>
                 <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.2, marginBottom: 4 }}>{result.name}</div>
@@ -731,8 +735,12 @@ export default function App() {
               <GradeStamp grade={result.grade} score={result.score} />
             </section>
 
+            <div id="audit-competition" className="audit-section-head"><span>01</span><h3>Local competitor landscape</h3></div>
             <RankLadder rivals={result.rivals} youName={result.name} />
+            {!result.rivals && <p className="audit-empty">Comparable local competitor data was not available for this search. No ranking was inferred.</p>}
 
+            <div id="audit-evidence" className="audit-section-head"><span>02</span><h3>Evidence and profile health</h3></div>
+            <div className="audit-visual-strip"><div><strong>{result.reviewCount.toLocaleString()}</strong><span>Google reviews</span></div><div><strong>{result.reviewCount ? result.rating.toFixed(1) : "—"}</strong><span>Star rating / 5</span></div><div><strong>{result.photoCapped ? "10+" : result.photoCount}</strong><span>Photos returned by API*</span></div><div><strong>{completeness}/5</strong><span>Key profile fields</span></div></div>
             <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.15s" }}>
               <div className="eyebrow" style={{ marginBottom: 10 }}>Profile readings — live Google data</div>
               <MetricRow label="Star rating" value={result.rating} max={5}
@@ -770,13 +778,16 @@ export default function App() {
               </section>
             )}
 
+            <div id="audit-plan" className="audit-section-head"><span>03</span><h3>Prioritized improvement plan</h3></div>
             <ActionPlan plan={result.plan} />
 
+            <div id="audit-findings" className="audit-section-head"><span>04</span><h3>Diagnostic findings</h3></div>
             <section className="card rise" style={{ marginBottom: 16, animationDelay: "0.25s" }}>
               <div className="eyebrow" style={{ marginBottom: 6 }}>Findings — tap to expand</div>
               {result.issues.map((i, idx) => <Finding key={idx} text={i.text} level={i.level} />)}
             </section>
 
+            <p className="audit-method">Source: Google Places API and optional website scan. Photo totals are limited to images returned by the API, not the full gallery. Report score reflects profile checks only; not a verified estimate of sales, traffic, or search ranking.</p>
             <section className="card rise no-print result-cta" style={{ animationDelay: "0.3s" }}>
               <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>Want RepBlaze to close these gaps?</div>
               <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.65, margin: "0 0 18px" }}>
