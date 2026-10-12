@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";\nimport "./audit-v2.css";
+import { useState, useEffect, useRef } from "react";
+import "./audit-v2.css";
 
 /* Public project URL + publishable key. RLS limits anonymous traffic to validated inserts. */
 const SUPABASE_URL = "https://ixqzawhedscwggbhgwtz.supabase.co";
