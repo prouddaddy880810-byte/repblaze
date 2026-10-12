@@ -1,0 +1,38 @@
+/* RepBlaze audit design standard V2 — scoped; landing page unchanged */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap');
+.audit-v2{--paper:#f6f4ee;--surface:#fff;--ink:#17130e;--muted:#6e675c;--faint:#8a8277;--line:#e2ddd1;--red:#d92b21;--green:#1e7a44;--amber:#a66a00;--blue:#1d5fa8;--mono:'DM Sans',sans-serif;color:var(--ink);background:var(--paper);font-family:'DM Sans',sans-serif;padding:24px 24px 40px;border:1px solid var(--line);width:min(920px,calc(100% - 28px));}
+.audit-v2 *{box-sizing:border-box}
+.audit-v2 h2,.audit-v2 h3,.audit-v2 strong{font-family:'Manrope','DM Sans',sans-serif}
+.audit-brandbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:4px 0 22px}
+.audit-brandbar strong{font-size:20px;font-weight:800;letter-spacing:-.06em}
+.audit-brandbar strong span{color:var(--red)}
+.audit-brandbar small{font-size:10px;letter-spacing:.11em;color:var(--muted);font-weight:700}
+.audit-cover{border-bottom:3px solid var(--ink);padding:12px 0 20px;margin-bottom:22px}
+.audit-kicker{font-size:11px;letter-spacing:.12em;color:var(--red);font-weight:800}
+.audit-cover h2{font-size:clamp(28px,5vw,46px);letter-spacing:-.05em;line-height:1.16;margin:12px 0 24px}
+.audit-cover h2 span{color:var(--muted);font-weight:500}
+.audit-cover-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;padding-top:14px;border-top:1px solid var(--line)}
+.audit-cover-meta>span{font-size:10px;letter-spacing:.09em;color:var(--muted);font-weight:700}
+.audit-cover-meta b{display:block;font-size:12px;letter-spacing:0;color:var(--ink);margin-top:6px;overflow-wrap:anywhere}
+.audit-toc{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--line);margin-bottom:32px;background:var(--surface)}
+.audit-toc a{padding:14px 11px;color:var(--ink);font-size:12px;font-weight:700;text-decoration:none;border-right:1px solid var(--line)}
+.audit-toc a:last-child{border-right:0}
+.audit-toc em{display:block;font-style:normal;color:var(--red);font-size:11px;margin-bottom:3px}
+.audit-section-head{display:flex;gap:15px;align-items:baseline;border-bottom:1px solid #cdc5b4;padding-bottom:10px;margin:36px 0 17px;scroll-margin-top:90px}
+.audit-section-head span{font-size:13px;color:var(--red);font-weight:800}
+.audit-section-head h3{margin:0;font-size:clamp(20px,3vw,26px);font-weight:800;letter-spacing:-.03em}
+.audit-v2 .card{background:var(--surface);border:1px solid var(--line);border-radius:0;box-shadow:none;color:var(--ink)}
+.audit-v2 .eyebrow{color:var(--red);font-family:'DM Sans',sans-serif;font-weight:800;font-size:11px;letter-spacing:.08em}
+.audit-v2 .metric-row{border-color:var(--line)!important}
+.audit-v2 .audit-snapshot{border-left:4px solid var(--red)}
+.audit-v2 .rank-row{border-radius:0!important}
+.audit-visual-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);margin-bottom:16px}
+.audit-visual-strip>div{padding:18px 12px;border-right:1px solid var(--line);background:#fff}
+.audit-visual-strip>div:last-child{border:0}
+.audit-visual-strip strong{display:block;font-size:clamp(22px,3vw,32px);letter-spacing:-.05em;color:var(--blue)}
+.audit-visual-strip span{display:block;font-size:11px;line-height:1.4;color:var(--muted);margin-top:4px}
+.audit-empty,.audit-method{font-size:12px;line-height:1.6;color:var(--muted)}
+.audit-method{border-top:1px solid var(--line);padding-top:16px;margin:22px 0}
+.audit-v2 .result-cta{border-top:3px solid var(--red)}
+@media(max-width:640px){.audit-v2{padding:15px}.audit-brandbar{align-items:start;flex-direction:column;gap:4px}.audit-cover-meta{grid-template-columns:1fr 1fr}.audit-toc{grid-template-columns:1fr 1fr}.audit-toc a{border-bottom:1px solid var(--line)}.audit-visual-strip{grid-template-columns:1fr 1fr}.audit-visual-strip>div:nth-child(2){border-right:0}.audit-visual-strip>div:nth-child(-n+2){border-bottom:1px solid var(--line)}}
+@media print{.audit-v2{width:100%;border:0;padding:0;background:#fff;color:#111}.audit-v2 .card,.audit-visual-strip>div{break-inside:avoid;background:#fff}.audit-v2 .audit-section-head{break-after:avoid}.audit-toc{display:none}.audit-cover h2{font-size:34px}}
