@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import "./audit-v2.css";
+import { CONTACT } from "./contact.js";
+import { BeforeAfterProfile, ReviewStarDemo } from "./Interactive.jsx";
+import { useReveal } from "./useReveal.js";
 
-/* Public project URL + publishable key. RLS limits anonymous traffic to validated inserts. */
-const SUPABASE_URL = "https://ixqzawhedscwggbhgwtz.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Z5l9fxifrirlyCU5wHgJfA_fKkZjc4e";
-const LEAD_ENDPOINT = `${SUPABASE_URL}/rest/v1/leads`;
+/* Leads go to our own server route, which stores them (Supabase) AND emails Charlie. */
+const LEAD_ENDPOINT = "/api/lead";
 const daysAgo = (d) => Math.floor((Date.now() - d.getTime()) / 86400000);
 
 const newSubmissionId = () => {
@@ -147,21 +148,21 @@ const OFFERS = [
     title: "Reviews & Reputation",
     copy: "We build a steady review engine, respond professionally, and make sure your reputation keeps working after the job is done.",
     items: ["Policy-safe review requests", "Approval-first response management", "Customer recovery workflow"],
-    outcome: "GET CHOSEN",
+    outcome: "BUILD TRUST",
   },
   {
     number: "03",
     title: "Local SEO & Conversion",
     copy: "We strengthen the path from local search to phone call with focused pages, clearer offers, and better local signals.",
     items: ["Local search optimization", "Conversion-focused landing pages", "Clear calls to action"],
-    outcome: "WIN THE CLICK",
+    outcome: "WIN MORE CUSTOMERS",
   },
   {
     number: "04",
     title: "AI & Workflow Automation",
     copy: "We connect the repetitive steps behind your growth so leads, follow-up, intake, and reporting do not depend on memory.",
     items: ["Lead follow-up systems", "Custom intake and routing", "Simple owner dashboards"],
-    outcome: "RUN SMARTER",
+    outcome: "KEEP GROWING",
   },
 ];
 
@@ -336,15 +337,56 @@ function ActionPlan({ plan }) {
   );
 }
 
+class LeadError extends Error {
+  constructor(code, fields) {
+    super(code);
+    this.code = code;
+    this.fields = fields || null;
+  }
+}
+
+function ContactFallback() {
+  return (
+    <div className="fallback" role="alert">
+      <div className="fallback-title">We couldn’t send that just now.</div>
+      <p>Your request did <b>not</b> go through and nothing was saved. Please reach us directly and we’ll take it from there:</p>
+      <div className="fallback-actions">
+        {CONTACT.tel && <a className="btn-primary" href={CONTACT.tel}>Call {CONTACT.phone}</a>}
+        {CONTACT.sms && <a className="btn-ghost" href={CONTACT.sms}>Text us</a>}
+        {CONTACT.email && (
+          <a className="btn-ghost" href={`mailto:${CONTACT.email}?subject=${encodeURIComponent("RepBlaze fix plan request")}`}>
+            Email us
+          </a>
+        )}
+      </div>
+      {CONTACT.email && <div className="fallback-addr">{CONTACT.phone ? `${CONTACT.phone} · ` : ""}{CONTACT.email}</div>}
+    </div>
+  );
+}
+
 function LeadModal({ onClose, businessName, onSubmit }) {
   const [form, setForm] = useState({
     name: "", business: businessName || "", phone: "", email: "", notes: "",
-    consentSms: false, consentEmail: false,
+    consentSms: false, consentEmail: false, website: "",
   });
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState("");
+  const [failed, setFailed] = useState(false);
   const submissionId = useRef(newSubmissionId());
+  const firstField = useRef(null);
+  const fallbackRef = useRef(null);
+
+  useEffect(() => {
+    if (failed) fallbackRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [failed]);
+
+  useEffect(() => {
+    firstField.current?.focus();
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   const submit = async () => {
     if (sending) return;
@@ -353,42 +395,57 @@ function LeadModal({ onClose, businessName, onSubmit }) {
     if (form.phone.trim() && !form.consentSms) { setErr("Please confirm we may contact you by text or remove the phone number."); return; }
     if (form.email.trim() && !form.consentEmail) { setErr("Please confirm we may contact you by email or remove the email address."); return; }
     setErr("");
+    setFailed(false);
     setSending(true);
     try {
       await onSubmit({ ...form, submissionId: submissionId.current });
       setSent(true);
-    } catch {
-      setErr("We couldn't send your request. Please try again — your information was not stored in this browser.");
+    } catch (e) {
+      if (e?.code === "VALIDATION" && e.fields) {
+        setErr(Object.values(e.fields)[0] || "Please check the form and try again.");
+      } else if (e?.code === "RATE_LIMITED") {
+        setErr("That’s a lot of tries in a short time. Please wait a few minutes, or reach us directly below.");
+        setFailed(true);
+      } else {
+        setFailed(true);
+      }
     } finally {
       setSending(false);
     }
   };
 
   const fields = [
-    { k: "name", label: "Your name", ph: "Jane Smith" },
-    { k: "business", label: "Business", ph: "Business name" },
-    { k: "phone", label: "Phone", ph: "(816) 000-0000" },
-    { k: "email", label: "Email", ph: "you@email.com" },
-    { k: "notes", label: "Notes (optional)", ph: "Anything we should know?" },
+    { k: "name", label: "Your name", ph: "Jane Smith", type: "text", ac: "name" },
+    { k: "business", label: "Business", ph: "Business name", type: "text", ac: "organization" },
+    { k: "phone", label: "Phone", ph: "(816) 000-0000", type: "tel", ac: "tel" },
+    { k: "email", label: "Email", ph: "you@email.com", type: "email", ac: "email" },
+    { k: "notes", label: "Notes (optional)", ph: "Anything we should know?", type: "text", ac: "off" },
   ];
 
   return (
-    <div onClick={onClose} role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, background: "rgba(23,19,14,0.55)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "100%", maxWidth: 420, boxShadow: "0 24px 60px rgba(0,0,0,0.25)" }}>
+    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="lead-title">
+      <div onClick={(e) => e.stopPropagation()} className="modal-card">
+        <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         {!sent ? (
-          <>
-            <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 4 }}>Get your fix plan</div>
-            <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 18, lineHeight: 1.55 }}>
-              We’ll review the gaps and show you what the $99/month managed system should handle for {form.business || "your business"}.
+          <form onSubmit={(e) => { e.preventDefault(); submit(); }} noValidate>
+            <div className="modal-flame" aria-hidden="true"><img src="/brand/flame-icon.png" alt="" /></div>
+            <div id="lead-title" className="modal-title">Get your free fix plan</div>
+            <div className="modal-sub">
+              We’ll look over {form.business || "your business"}’s Google presence and walk you through what we’d fix first. No pressure.
             </div>
-            {fields.map((f) => (
-              <div key={f.k} style={{ marginBottom: 12 }}>
-                <div className="eyebrow" style={{ fontSize: 10, marginBottom: 5 }}>{f.label}</div>
-                <input className="text-input" value={form[f.k]} placeholder={f.ph}
-                  onChange={(e) => setForm({ ...form, [f.k]: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && submit()} />
-              </div>
+            {fields.map((f, i) => (
+              <label key={f.k} className="field">
+                <span>{f.label}</span>
+                <input ref={i === 0 ? firstField : undefined} className="text-input" type={f.type} autoComplete={f.ac}
+                  value={form[f.k]} placeholder={f.ph}
+                  onChange={(e) => setForm({ ...form, [f.k]: e.target.value })} />
+              </label>
             ))}
+            {/* Honeypot: hidden from people, bots fill it in. */}
+            <div className="hp" aria-hidden="true">
+              <label>Website<input tabIndex={-1} autoComplete="off" value={form.website}
+                onChange={(e) => setForm({ ...form, website: e.target.value })} /></label>
+            </div>
             {form.phone.trim() && (
               <label className="consent-row">
                 <input type="checkbox" checked={form.consentSms}
@@ -403,20 +460,63 @@ function LeadModal({ onClose, businessName, onSubmit }) {
                 <span>RepBlaze may email me about this request. I can unsubscribe at any time.</span>
               </label>
             )}
-            {err && <div style={{ color: "var(--red)", fontSize: 13, marginBottom: 10 }}>{err}</div>}
-            <button className="btn-primary" style={{ width: "100%", marginTop: 4 }} onClick={submit} disabled={sending}>
-              {sending ? "Sending…" : "Send my fix-plan request"}
+            {err && <div className="form-error" role="alert">{err}</div>}
+            {failed && <div ref={fallbackRef}><ContactFallback /></div>}
+            <button type="submit" className="btn-primary" style={{ width: "100%", marginTop: 6 }} disabled={sending}>
+              {sending ? "Sending…" : failed ? "Try sending again" : "Send my fix-plan request"}
             </button>
-          </>
+          </form>
         ) : (
-          <div style={{ textAlign: "center", padding: "16px 0" }}>
-            <div style={{ fontFamily: "var(--mono)", color: "var(--green)", fontWeight: 700, fontSize: 15, marginBottom: 8 }}>✓ Sent</div>
-            <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 20, lineHeight: 1.6 }}>We've got your info. Expect to hear from RepBlaze fast.</div>
+          <div className="modal-done">
+            <div className="done-check" aria-hidden="true">✓</div>
+            <div className="modal-title">Got it. Thank you!</div>
+            <p>Your request came through. Charlie will follow up with you personally.</p>
             <button className="btn-ghost" onClick={onClose}>Close</button>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/* ============================================================
+   PAGE CONTENT
+   ============================================================ */
+
+const PILLARS = [
+  { n: "01", title: "Get Found", copy: "A complete, accurate Google Business Profile so you show up when neighbors search for what you do.", icon: "pin" },
+  { n: "02", title: "Build Trust", copy: "A simple, policy-safe way to ask every customer for an honest review, plus thoughtful replies.", icon: "star" },
+  { n: "03", title: "Win More Customers", copy: "Clear photos, hours and calls-to-action, so the people comparing you can call, visit, or book in one tap.", icon: "phone" },
+  { n: "04", title: "Keep Growing", copy: "Monthly check-ins on what changed, how you compare locally, and the next thing worth fixing.", icon: "trend" },
+];
+
+const EXAMPLES = [
+  { img: "/photos/auto-repair-owner.jpg", name: "Main Street Auto Repair", line: "Gets the same-day brake job, not just the search impression." },
+  { img: "/photos/barber-and-customer.jpg", name: "Corner Barber Co.", line: "Turns regulars’ good word into reviews new folks can actually see." },
+  { img: "/photos/owners-on-shop-step.jpg", name: "Hometown Bakery & Café", line: "Keeps hours, photos and specials current, so nobody shows up to a locked door." },
+];
+
+const INCLUDED = [
+  "Google Business Profile cleanup and monthly checks",
+  "Text and email review-request workflow",
+  "Review-reply drafts you approve before they post",
+  "Low-rating alert with a follow-up task",
+  "Local competitor and review-pace scorecard",
+  "One completed visibility improvement every month",
+  "A real person in St. Joseph you can call",
+];
+
+const ICON_PATHS = {
+  pin: "M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.4 12 21 12 21zm0-8.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
+  star: "M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z",
+  phone: "M6.6 3.5h2.8l1.4 3.9-1.9 1.3a11 11 0 0 0 6.4 6.4l1.3-1.9 3.9 1.4v2.8a1.6 1.6 0 0 1-1.7 1.6A16 16 0 0 1 5 5.2a1.6 1.6 0 0 1 1.6-1.7z",
+  trend: "M4 17l5.5-5.5 3.5 3.5L20 8m0 0h-5m5 0v5",
+};
+function PillarIcon({ name }) {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d={ICON_PATHS[name]} />
+    </svg>
   );
 }
 
@@ -433,7 +533,12 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [siteScan, setSiteScan] = useState(null);
   const [siteScanLoading, setSiteScanLoading] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const reportRef = useRef(null);
+  const openModal = useCallback(() => { setNavOpen(false); setModalOpen(true); }, []);
+  const closeModal = useCallback(() => setModalOpen(false), []);
+
+  useReveal([]);
 
   useEffect(() => {
     const check = setInterval(() => {
@@ -452,42 +557,38 @@ export default function App() {
   const handleLead = async (form) => {
     const params = new URLSearchParams(window.location.search);
     const payload = {
-      name: form.name.trim().slice(0, 120),
-      business_name: form.business.trim().slice(0, 160) || null,
-      phone: form.phone.trim().slice(0, 40) || null,
-      email: form.email.trim().toLowerCase().slice(0, 254) || null,
-      notes: form.notes.trim().slice(0, 2000) || null,
-      source: params.get("utm_source")?.slice(0, 120) || (result ? "audit-tool" : "landing-page"),
-      medium: params.get("utm_medium")?.slice(0, 120) || null,
-      campaign: params.get("utm_campaign")?.slice(0, 160) || null,
-      content: params.get("utm_content")?.slice(0, 160) || null,
-      landing_page: `${window.location.origin}${window.location.pathname}`.slice(0, 500),
-      referrer: document.referrer.slice(0, 500) || null,
+      name: form.name,
+      business: form.business,
+      phone: form.phone,
+      email: form.email,
+      notes: form.notes,
+      website: form.website, // honeypot
+      source: params.get("utm_source") || (result ? "audit-tool" : "landing-page"),
+      medium: params.get("utm_medium"),
+      campaign: params.get("utm_campaign"),
+      content: params.get("utm_content"),
+      term: params.get("utm_term"),
+      landing_page: `${window.location.origin}${window.location.pathname}`,
+      referrer: document.referrer || null,
       session_id: form.submissionId,
-      first_touch_source: params.get("utm_source")?.slice(0, 120) || "direct",
-      last_touch_source: params.get("utm_source")?.slice(0, 120) || "direct",
-      audited_business: result?.name?.slice(0, 160) || null,
+      audited_business: result?.name || null,
       audit_score: Number.isInteger(result?.score) ? result.score : null,
       consent_sms: Boolean(form.phone.trim() && form.consentSms),
       consent_email: Boolean(form.email.trim() && form.consentEmail),
-      raw_payload: { client_version: "landing-v2", has_audit: Boolean(result) },
     };
 
-    const response = await fetch(LEAD_ENDPOINT, {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_PUBLISHABLE_KEY,
-        Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    // A retry with the same submission ID means the original request already landed.
-    if (!response.ok && response.status !== 409) {
-      throw new Error(`Lead submission failed: ${response.status}`);
+    let response;
+    try {
+      response = await fetch(LEAD_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      throw new LeadError("NETWORK");
     }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok !== true) throw new LeadError(data.error || `HTTP_${response.status}`, data.fields);
   };
 
   const runAudit = async () => {
@@ -617,7 +718,7 @@ export default function App() {
         plan.push({ title: "Build your review base", impact: "HIGH", why: "A thin review count limits how trusted your profile looks to new customers.", action: "Start a consistent review-request flow to steadily grow the count." });
       }
       if (reviewCount > 0 && rating < 4.0) {
-        plan.push({ title: "Lift your star rating", impact: "HIGH", why: "A rating under 4.0 can turn customers away before they visit.", action: "Respond to every review and route happy customers to leave feedback." });
+        plan.push({ title: "Lift your star rating", impact: "HIGH", why: "A rating under 4.0 can turn customers away before they visit.", action: "Respond to every review and ask every customer for honest feedback." });
       }
       if (lastReviewDays !== null && lastReviewDays > 180) {
         plan.push({ title: "Get fresh reviews flowing", impact: "HIGH", why: "The newest review visible on your profile is about " + Math.round(lastReviewDays / 30) + " months old. A quiet profile reads as a quiet business.", action: "Restart review collection immediately — recency matters as much as volume." });
@@ -653,58 +754,115 @@ export default function App() {
       <header className="site-header no-print">
         <div className="nav-shell">
           <a className="brand" href="#top" aria-label="RepBlaze home">
-            REP<span>BLAZE</span><i aria-hidden="true" />
+            <img src="/brand/flame-icon.png" alt="" width="44" height="44" />
+            <span className="wordmark">Rep<span className="flame-text">Blaze</span></span>
           </a>
-          <nav className="desktop-nav" aria-label="Main navigation">
-            <a href="#system">The system</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#audit">Free audit</a>
+          <nav className={`desktop-nav ${navOpen ? "open" : ""}`} aria-label="Main navigation">
+            <a href="#process" onClick={() => setNavOpen(false)}>How it works</a>
+            <a href="#services" onClick={() => setNavOpen(false)}>What we do</a>
+            <a href="#local" onClick={() => setNavOpen(false)}>Local</a>
+            <a href="#audit" onClick={() => setNavOpen(false)}>Free audit</a>
           </nav>
-          <button className="nav-cta" onClick={() => setModalOpen(true)}>Get a fix plan</button>
+          <div className="nav-right">
+            <button className="nav-cta" onClick={openModal}>Get my fix plan</button>
+            <button className="nav-toggle" aria-label="Menu" aria-expanded={navOpen} onClick={() => setNavOpen(!navOpen)}>
+              <span /><span /><span />
+            </button>
+          </div>
         </div>
       </header>
 
       <main>
+        {/* ---------- HERO ---------- */}
         <section className="hero no-print">
-          <div className="hero-copy">
-            <div className="eyebrow orange">Managed local reputation &amp; visibility for small businesses</div>
-            <h1>Win the search.<br />Earn the <span>trust.</span><br />Keep the customer.</h1>
+          <div className="hero-glow" aria-hidden="true" />
+          <div className="hero-copy" data-reveal>
+            <div className="eyebrow orange">Local reputation help · St. Joseph, Missouri</div>
+            <h1>
+              You’re good at what you do.{" "}
+              <span className="flame-text">Let’s make sure your town knows&nbsp;it.</span>
+            </h1>
             <p className="hero-lede">
-              RepBlaze installs, monitors, and improves the system behind your Google presence: policy-safe review requests, approval-first responses, customer recovery, competitor tracking, and one completed visibility action every month.
+              RepBlaze helps local shops, trades and restaurants get found on Google, earn genuine reviews, and look like the clear
+              choice when neighbors compare their options. We do the work, and you stay in control of what gets posted.
             </p>
             <div className="hero-actions">
-              <a className="btn-primary" href="#audit">Show me my reputation gaps</a>
-              <a className="btn-ghost" href="#pricing">See the $99 system</a>
+              <a className="btn-primary" href="#audit">Run my free audit</a>
+              <a className="btn-ghost" href="#compare">See the difference</a>
             </div>
-            <div className="capability-line" aria-label="RepBlaze capabilities">
-              <span>Month-to-month</span>
-              <span>Policy-safe automation</span>
-              <span>Human-approved responses</span>
-              <span>Owner-operated businesses</span>
-            </div>
+            <ul className="capability-line" aria-label="How we work">
+              <li>Free audit, no signup</li>
+              <li>Honest reviews only</li>
+              <li>You approve replies</li>
+              <li>Based in St. Joe</li>
+            </ul>
           </div>
 
-          <section className="audit-panel metal-panel" id="audit" aria-labelledby="audit-title">
-            <div className="panel-status">
-              <span><i className={mapsReady ? "status-live" : "status-wait"} /> {mapsReady ? "Live Google data" : "Connecting to Google"}</span>
-              <strong>FREE</strong>
+          <div className="hero-visual" data-reveal>
+            <div className="hero-photo">
+              <img src="/photos/cafe-owner-doorway.jpg" alt="Smiling café owner in an apron standing in her shop’s doorway" width="1400" height="934" fetchPriority="high" />
             </div>
-            <div className="eyebrow">RepBlaze visibility check</div>
-            <h2 id="audit-title">See what customers see.</h2>
-            <p>Find your business, get a profile grade, and see how you stack up against nearby competitors. No signup.</p>
-            <label className="eyebrow audit-label" htmlFor="business-search">Business name + city / state</label>
-            <input id="business-search" className="text-input audit-input"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && runAudit()}
-              placeholder="e.g. Dream of Sneakerz, St. Joseph MO"
-              aria-label="Business name and city" />
-            <button className="btn-primary audit-button" onClick={runAudit} disabled={loading || !mapsReady}>
-              {loading ? "Running inspection…" : "Audit my business"}
-            </button>
-            {error && <div className="form-error" role="alert">{error}</div>}
-            <div className="audit-note">Live profile data <b>·</b> Local competitor check <b>·</b> Clear next steps</div>
-          </section>
+            <div className="float-card float-review" aria-hidden="true">
+              <div className="fc-stars">★★★★★</div>
+              <div className="fc-line">Every happy customer is a review waiting to be asked for.</div>
+            </div>
+            <div className="float-card float-check" aria-hidden="true">
+              <img src="/brand/flame-icon.png" alt="" />
+              <div><b>Profile check</b><span>Hours · Photos · Replies</span></div>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- PILLARS ---------- */}
+        <section className="pillars no-print" aria-label="What RepBlaze helps with">
+          <div className="section-shell pillar-grid">
+            {PILLARS.map((p, i) => (
+              <article key={p.n} className="pillar" data-reveal style={{ "--d": `${i * 80}ms` }}>
+                <div className="pillar-icon" aria-hidden="true"><PillarIcon name={p.icon} /></div>
+                <span className="pillar-n">{p.n}</span>
+                <h3>{p.title}</h3>
+                <p>{p.copy}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* ---------- AUDIT ---------- */}
+        <section className="audit-section no-print" aria-labelledby="audit-title">
+          <div className="section-shell audit-layout">
+            <div className="audit-intro" data-reveal>
+              <div className="eyebrow orange">Free visibility check</div>
+              <h2>See what your customers see.</h2>
+              <p>
+                Type your business name and city. We pull your live Google profile, compare it with nearby businesses in your category,
+                and show the gaps in plain English. It takes about a minute and there’s no signup.
+              </p>
+              <ul className="audit-points">
+                <li><b>Profile grade</b> based on reviews, rating, photos, hours, phone and website</li>
+                <li><b>Local standings</b> next to nearby businesses in the same category</li>
+                <li><b>A short, prioritized fix list</b> you can print or save</li>
+              </ul>
+            </div>
+
+            <section className="audit-panel" id="audit" data-reveal>
+              <div className="panel-status">
+                <span><i className={mapsReady ? "status-live" : "status-wait"} /> {mapsReady ? "Live Google data" : "Connecting to Google"}</span>
+                <strong>FREE</strong>
+              </div>
+              <h3 id="audit-title">Audit my business</h3>
+              <label className="audit-label" htmlFor="business-search">Business name + city / state</label>
+              <input id="business-search" className="text-input audit-input"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runAudit()}
+                placeholder="e.g. Main Street Auto Repair, St. Joseph MO" />
+              <button className="btn-primary audit-button" onClick={runAudit} disabled={loading || !mapsReady}>
+                {loading ? "Running inspection…" : "Run my free audit"}
+              </button>
+              {error && <div className="form-error" role="alert">{error}</div>}
+              <div className="audit-note">Live profile data <b>·</b> Local competitor check <b>·</b> Clear next steps</div>
+            </section>
+          </div>
         </section>
 
         {loading && (
@@ -717,7 +875,7 @@ export default function App() {
 
         {result && (
           <div ref={reportRef} className="report-shell audit-v2" style={{ scrollMarginTop: 92 }}>
-            <div className="audit-brandbar"><strong>REP<span>BLAZE</span></strong><small>LOCAL VISIBILITY INTELLIGENCE / AUDIT V2</small></div>
+            <div className="audit-brandbar"><img src="/brand/logo-side.webp" alt="RepBlaze" height="44" /><small>LOCAL VISIBILITY REPORT</small></div>
             <div className="audit-cover"><div className="audit-kicker">COMPLIMENTARY BUSINESS AUDIT · {new Date().toLocaleDateString()}</div><h2>{result.name}<span> / Visibility Report</span></h2><div className="audit-cover-meta"><span>BUSINESS <b>{result.name}</b></span><span>LOCATION <b>{result.address}</b></span><span>PREPARED BY <b>RepBlaze</b></span></div></div>
             <nav className="audit-toc no-print" aria-label="Audit report sections"><a href="#audit-snapshot"><em>00</em> Snapshot</a><a href="#audit-competition"><em>01</em> Competition</a><a href="#audit-evidence"><em>02</em> Evidence</a><a href="#audit-plan"><em>03</em> Action plan</a><a href="#audit-findings"><em>04</em> Findings</a></nav>
             <div className="print-only" style={{ marginBottom: 20, paddingBottom: 12, borderBottom: "3px solid var(--red)" }}>
@@ -802,52 +960,114 @@ export default function App() {
           </div>
         )}
 
-        <section className="system-band no-print" id="system" aria-label="RepBlaze outcomes">
-          <div className="section-shell band-grid">
-            <div>
-              <div className="eyebrow orange">The RepBlaze system</div>
-              <h2>Google creates the moment.<br />We help you win it.</h2>
+        {/* ---------- BEFORE / AFTER ---------- */}
+        <section className="compare-section no-print" id="compare" aria-labelledby="compare-title">
+          <div className="section-shell compare-layout">
+            <div className="section-heading" data-reveal>
+              <div className="eyebrow orange">Same business, better first impression</div>
+              <h2 id="compare-title">Your Google profile is your new front window.</h2>
+              <p>
+                Most people meet a local business on Google before they ever walk in. A profile with no photos, missing hours and
+                unanswered reviews looks closed, even when you’re busy. Drag the slider to see the difference a complete profile makes.
+              </p>
+              <a className="text-link" href="#audit">Check my profile <span>→</span></a>
             </div>
-            <div className="outcome-grid">
-              <div><strong>01</strong><span>Be visible when they search</span></div>
-              <div><strong>02</strong><span>Look like the clear choice</span></div>
-              <div><strong>03</strong><span>Make the next step easy</span></div>
-              <div><strong>04</strong><span>Follow up without chasing</span></div>
+            <div data-reveal><BeforeAfterProfile /></div>
+          </div>
+        </section>
+
+        {/* ---------- REVIEW DEMO ---------- */}
+        <section className="reviews-section no-print" aria-labelledby="reviews-title">
+          <div className="section-shell">
+            <div className="section-heading center" data-reveal>
+              <div className="eyebrow orange">Genuine reviews, made easy</div>
+              <h2 id="reviews-title">Ask every customer. Hear every customer.</h2>
+              <p>After a job or visit, your customer gets a friendly text or email asking how it went. Try it yourself:</p>
+            </div>
+            <div data-reveal><ReviewStarDemo /></div>
+          </div>
+        </section>
+
+        {/* ---------- EXAMPLES ---------- */}
+        <section className="examples-section no-print" aria-labelledby="examples-title">
+          <div className="section-shell">
+            <div className="section-heading" data-reveal>
+              <div className="eyebrow orange">Built for the shops on your street</div>
+              <h2 id="examples-title">If customers find you on Google, we can help.</h2>
+              <p>Auto shops, barbers, bakeries, contractors, salons, restaurants: the businesses that keep a town running.</p>
+            </div>
+            <div className="example-grid">
+              {EXAMPLES.map((ex, i) => (
+                <article key={ex.name} className="example-card" data-reveal style={{ "--d": `${i * 90}ms` }}>
+                  <div className="example-img"><img src={ex.img} alt="" loading="lazy" /></div>
+                  <div className="example-body">
+                    <span className="example-tag">Example</span>
+                    <h3>{ex.name}</h3>
+                    <p>{ex.line}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <p className="fine-print">Example business names are made up for illustration. Photos are licensed stock images, not RepBlaze clients.</p>
+          </div>
+        </section>
+
+        {/* ---------- SERVICES ---------- */}
+        <section className="content-section no-print" id="services">
+          <div className="section-shell">
+            <div className="section-heading" data-reveal>
+              <div className="eyebrow orange">What we do</div>
+              <h2>One local growth system. Four jobs handled.</h2>
+              <p>Most local businesses don’t only have a visibility problem or only a follow-up problem. They have both. RepBlaze connects the whole path from search to sale.</p>
+            </div>
+            <div className="offer-grid">
+              {OFFERS.map((offer, i) => (
+                <article className="offer-card" key={offer.number} data-reveal style={{ "--d": `${(i % 2) * 90}ms` }}>
+                  <div className="offer-top"><span>{offer.number}</span><strong>{offer.outcome}</strong></div>
+                  <h3>{offer.title}</h3>
+                  <p>{offer.copy}</p>
+                  <ul>
+                    {offer.items.map((item) => <li key={item}>{item}</li>)}
+                  </ul>
+                </article>
+              ))}
             </div>
           </div>
         </section>
 
+        {/* ---------- LOOP ---------- */}
         <section className="loop-section no-print">
           <div className="section-shell">
-            <div className="section-heading loop-heading">
-              <div className="eyebrow orange">The managed reputation loop</div>
-              <h2>A review is not the finish line.<br />It is the next trigger.</h2>
-              <p>Most tools hand you another inbox. RepBlaze turns customer feedback into a repeatable operating workflow, with you in control of what gets published.</p>
+            <div className="section-heading" data-reveal>
+              <div className="eyebrow orange">The reputation loop</div>
+              <h2>A review isn’t the finish line. It’s the next step.</h2>
+              <p>RepBlaze turns customer feedback into a simple routine, and you stay in control of anything that gets published.</p>
             </div>
             <div className="loop-grid">
-              {REPUTATION_LOOP.map((step) => (
-                <article key={step.number}>
+              {REPUTATION_LOOP.map((step, i) => (
+                <article key={step.number} data-reveal style={{ "--d": `${i * 80}ms` }}>
                   <span>{step.number}</span>
                   <h3>{step.title}</h3>
                   <p>{step.copy}</p>
                 </article>
               ))}
             </div>
-            <div className="approval-strip">
-              <div><span>DEFAULT MODE</span><strong>Draft → Approve → Act</strong></div>
-              <p>Automation earns trust. Responses and sensitive profile changes stay approval-first until the workflow proves dependable.</p>
+            <div className="approval-strip" data-reveal>
+              <div><span>Default mode</span><strong>Draft → You approve → We post</strong></div>
+              <p>Replies and sensitive profile changes wait for your OK until you tell us otherwise.</p>
             </div>
           </div>
         </section>
 
+        {/* ---------- DIFFERENCE ---------- */}
         <section className="difference-section no-print" aria-labelledby="difference-title">
           <div className="section-shell difference-layout">
-            <div className="section-heading difference-heading">
+            <div className="section-heading difference-heading" data-reveal>
               <div className="eyebrow orange">Why RepBlaze instead of another app</div>
-              <h2 id="difference-title">Tools show the work.<br />We get it done.</h2>
-              <p>Google and low-cost software can generate drafts and dashboards. The missing piece is still ownership: somebody has to check the data, protect the brand, complete the action, and prove what changed.</p>
+              <h2 id="difference-title">Apps show you the work. We get it done.</h2>
+              <p>Software can generate drafts and dashboards. Someone still has to check the data, protect your name, finish the task and show what changed. That’s us.</p>
             </div>
-            <div className="difference-table" role="table" aria-label="Typical software compared with RepBlaze">
+            <div className="difference-table" role="table" aria-label="Typical software compared with RepBlaze" data-reveal>
               <div className="difference-head" role="row">
                 <span role="columnheader">Typical software</span>
                 <span role="columnheader">RepBlaze</span>
@@ -862,39 +1082,18 @@ export default function App() {
           </div>
         </section>
 
-        <section className="content-section no-print" id="services">
-          <div className="section-shell">
-            <div className="section-heading">
-              <div className="eyebrow orange">What we do</div>
-              <h2>One growth system.<br />Four jobs handled.</h2>
-              <p>Most local businesses do not have a visibility problem or a follow-up problem. They have both. RepBlaze connects the full path from search to sale.</p>
-            </div>
-            <div className="offer-grid">
-              {OFFERS.map((offer) => (
-                <article className="offer-card metal-panel" key={offer.number}>
-                  <div className="offer-top"><span>{offer.number}</span><strong>{offer.outcome}</strong></div>
-                  <h3>{offer.title}</h3>
-                  <p>{offer.copy}</p>
-                  <ul>
-                    {offer.items.map((item) => <li key={item}>{item}</li>)}
-                  </ul>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
+        {/* ---------- PROCESS ---------- */}
         <section className="process-section no-print" id="process">
           <div className="section-shell process-layout">
-            <div className="section-heading process-heading">
+            <div className="section-heading process-heading" data-reveal>
               <div className="eyebrow orange">How it works</div>
-              <h2>Diagnose.<br />Build.<br />Manage.</h2>
-              <p>No mystery marketing. We identify the leaks, install the right system, and keep the machine moving.</p>
+              <h2>Check. Fix. Keep it going.</h2>
+              <p>No mystery marketing. We find the gaps, fix the foundation, and keep things moving every month.</p>
               <a className="text-link" href="#audit">Start with the free audit <span>→</span></a>
             </div>
             <div className="process-list">
-              {PROCESS.map((step) => (
-                <article key={step.number}>
+              {PROCESS.map((step, i) => (
+                <article key={step.number} data-reveal style={{ "--d": `${i * 90}ms` }}>
                   <span>{step.number}</span>
                   <div><h3>{step.title}</h3><p>{step.copy}</p></div>
                 </article>
@@ -903,42 +1102,57 @@ export default function App() {
           </div>
         </section>
 
-        <section className="pricing-section no-print" id="pricing">
-          <div className="section-shell pricing-shell">
-            <div className="pricing-copy">
-              <div className="eyebrow orange">Simple launch offer</div>
-              <h2>Managed outcomes.<br />Not another login.</h2>
-              <p>Software-only review tools are cheap. RepBlaze is priced for the work local owners do not have time to install, monitor, and improve.</p>
-              <div className="price-line"><strong>$99</strong><span>/ month</span></div>
-              <div className="setup-line">$349 one-time setup · Month-to-month</div>
-            </div>
-            <div className="pricing-card metal-panel">
-              <div className="eyebrow">RepBlaze managed reputation system</div>
-              <ul>
-                <li>Google Business Profile baseline and monthly checks</li>
-                <li>SMS and email review-request workflow</li>
-                <li>Review-response drafts with owner approval</li>
-                <li>Negative-feedback alert and recovery task</li>
-                <li>Local competitor and review-velocity scorecard</li>
-                <li>One completed visibility action every month</li>
-                <li>Direct owner support</li>
-              </ul>
-              <button className="btn-primary" onClick={() => setModalOpen(true)}>Get my fix plan</button>
-              <p className="price-note">Messaging usage and custom integrations are quoted separately. Honest feedback only—no review gating, quotas, or requested five-star language.</p>
+        {/* ---------- LOCAL ---------- */}
+        <section className="local-section no-print" id="local" aria-labelledby="local-title">
+          <div className="local-photo" role="img" aria-label="Historic brick buildings on a downtown street in St. Joseph, Missouri" />
+          <div className="section-shell local-inner">
+            <div className="local-card" data-reveal>
+              <div className="eyebrow orange">Right here in St. Joe</div>
+              <h2 id="local-title">A local business helping local businesses.</h2>
+              <p>
+                RepBlaze is based in St. Joseph, Missouri, part of Dream Chasers Unlimited LLC. You won’t get a call center. You’ll
+                get someone who knows the town, can meet in person, and picks up the phone.
+              </p>
+              <div className="button-row">
+                <button className="btn-primary" onClick={openModal}>Talk to us about your business</button>
+              </div>
             </div>
           </div>
         </section>
 
+        {/* ---------- WHAT'S INCLUDED (no published price) ---------- */}
+        <section className="pricing-section no-print" id="pricing">
+          <div className="section-shell pricing-shell">
+            <div className="pricing-copy" data-reveal>
+              <div className="eyebrow orange">What’s included</div>
+              <h2>Managed for you. Not another login.</h2>
+              <p>
+                We handle the work local owners don’t have time to set up, watch, and improve. After your free audit we’ll walk you
+                through what we’d fix first and what it costs, in plain numbers, with no pressure.
+              </p>
+            </div>
+            <div className="pricing-card" data-reveal>
+              <div className="eyebrow">RepBlaze managed reputation system</div>
+              <ul>
+                {INCLUDED.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+              <button className="btn-primary" onClick={openModal}>Get my free fix plan</button>
+              <p className="price-note">Honest feedback only. No review gating, no quotas, no asking for five-star language. We never promise rankings or sales; we make sure you’re putting your best foot forward.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------- FINAL CTA ---------- */}
         <section className="final-cta no-print">
-          <div className="section-shell final-cta-inner metal-panel">
+          <div className="section-shell final-cta-inner" data-reveal>
+            <img className="final-flame" src="/brand/flame-icon.png" alt="" aria-hidden="true" />
             <div>
-              <div className="eyebrow orange">Built for local businesses</div>
-              <h2>Your next customer is already comparing you.</h2>
-              <p>See the gap. Get the fix plan. Let RepBlaze run the system.</p>
+              <h2>You’re good at what you do.<br /><span className="flame-text">Let’s make sure your town knows it.</span></h2>
+              <p>Start with a free audit. See the gaps. Decide from there.</p>
             </div>
             <div className="button-row cta-buttons">
-              <a className="btn-primary" href="#audit">Audit my business</a>
-              <button className="btn-ghost" onClick={() => setModalOpen(true)}>Get my $99 plan</button>
+              <a className="btn-primary" href="#audit">Run my free audit</a>
+              <button className="btn-ghost" onClick={openModal}>Get my fix plan</button>
             </div>
           </div>
         </section>
@@ -946,14 +1160,31 @@ export default function App() {
 
       <footer className="site-footer no-print">
         <div className="section-shell footer-grid">
-          <div className="brand footer-brand">REP<span>BLAZE</span><i aria-hidden="true" /></div>
-          <div>Local visibility, reputation, and automation systems.</div>
-          <div>St. Joseph, Missouri · A Dream Chasers Unlimited brand</div>
+          <div className="footer-brand">
+            <img src="/brand/flame-icon.png" alt="" width="96" height="96" loading="lazy" />
+          </div>
+          <div className="footer-col">
+            <div className="footer-script">Rep<span className="flame-text">Blaze</span></div>
+            <p>Get Found · Build Trust · Win More Customers · Keep Growing</p>
+            <p>St. Joseph, Missouri · A Dream Chasers Unlimited LLC brand</p>
+          </div>
+          <nav className="footer-col footer-links" aria-label="Footer">
+            <a href="#audit">Free audit</a>
+            <a href="#process">How it works</a>
+            <a href="#services">What we do</a>
+            <button onClick={openModal}>Get my fix plan</button>
+          </nav>
+        </div>
+        <div className="section-shell credits">
+          Photos: Ketut Subiyanto, Gustavo Fring, RDNE Stock project, Kampus Production (Pexels License). Downtown St. Joseph photo by{" "}
+          <a href="https://commons.wikimedia.org/w/index.php?curid=1255985" rel="noopener noreferrer" target="_blank">Tim Kiser</a>,{" "}
+          <a href="https://creativecommons.org/licenses/by-sa/2.5/" rel="noopener noreferrer" target="_blank">CC BY-SA 2.5</a>.
+          People and businesses pictured are not RepBlaze clients.
         </div>
       </footer>
 
       {modalOpen && (
-        <LeadModal onClose={() => setModalOpen(false)} businessName={result?.name} onSubmit={handleLead} />
+        <LeadModal onClose={closeModal} businessName={result?.name} onSubmit={handleLead} />
       )}
     </div>
   );
