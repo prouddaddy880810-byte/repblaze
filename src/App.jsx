@@ -134,6 +134,73 @@ const siteFindings = (scan) => {
   return out;
 };
 
+const Star = ({ filled = true }) => (
+  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+    <path
+      d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z"
+      fill={filled ? "var(--red)" : "none"}
+      stroke="var(--red)"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+function OfferArt({ number }) {
+  if (number === "01") {
+    return (
+      <div className="offer-art" aria-hidden="true">
+        <div className="art-profile">
+          <div className="art-avatar" />
+          <div className="art-profile-body">
+            <span className="art-line art-line-name" />
+            <span className="art-line art-line-cat" />
+            <div className="art-stars">{[0, 1, 2, 3, 4].map((i) => <Star key={i} />)}</div>
+          </div>
+        </div>
+        <div className="art-photos"><span /><span /><span /><span /></div>
+      </div>
+    );
+  }
+  if (number === "02") {
+    return (
+      <div className="offer-art" aria-hidden="true">
+        <div className="art-review">
+          <div className="art-stars"><Star /><Star /><Star filled={false} /><Star filled={false} /><Star filled={false} /></div>
+          <span className="art-review-text">Took forever to get a callback...</span>
+        </div>
+        <span className="art-pill">SENT PRIVATELY — NOT PUBLIC</span>
+      </div>
+    );
+  }
+  if (number === "03") {
+    return (
+      <div className="offer-art" aria-hidden="true">
+        <div className="art-gauge">
+          <svg viewBox="0 0 80 80" width="76" height="76">
+            <circle cx="40" cy="40" r="32" fill="none" stroke="var(--line-bright)" strokeWidth="7" />
+            <circle
+              cx="40" cy="40" r="32" fill="none" stroke="var(--red)" strokeWidth="7" strokeLinecap="round"
+              strokeDasharray="132.7 201.1" transform="rotate(-90 40 40)"
+            />
+          </svg>
+          <strong>66%</strong>
+        </div>
+        <span className="art-caption">VISIBILITY COMPLETE</span>
+      </div>
+    );
+  }
+  return (
+    <div className="offer-art" aria-hidden="true">
+      <div className="art-notify">
+        <div className="art-notify-top"><span className="art-tag">NEW LEAD</span><span className="art-time">JUST NOW</span></div>
+        <strong>Dana R.</strong>
+        <span className="art-notify-detail">Asked about a same-week estimate</span>
+      </div>
+    </div>
+  );
+}
+
 const OFFERS = [
   {
     number: "01",
@@ -872,6 +939,7 @@ export default function App() {
             <div className="offer-grid">
               {OFFERS.map((offer) => (
                 <article className="offer-card metal-panel" key={offer.number}>
+                  <OfferArt number={offer.number} />
                   <div className="offer-top"><span>{offer.number}</span><strong>{offer.outcome}</strong></div>
                   <h3>{offer.title}</h3>
                   <p>{offer.copy}</p>
