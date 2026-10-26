@@ -18,6 +18,8 @@
      LEAD_NOTIFY_FROM             optional, default "RepBlaze Leads <onboarding@resend.dev>"
      LEAD_ALLOWED_ORIGINS         optional, comma list of extra allowed origins
      RESEND_API_URL               test-only override of the Resend endpoint
+     SHEETS_WEBHOOK_URL           optional Google Apps Script web app URL (copy to Google Sheet)
+     SHEETS_WEBHOOK_SECRET        shared secret checked by the Apps Script
    ============================================================ */
 
 const DEFAULT_NOTIFY_TO = "prouddaddy880810@gmail.com";
@@ -220,6 +222,53 @@ export async function notifyLead(lead, env, fetchImpl = fetch) {
   }
 }
 
+/* ---------- Google Sheets copy (best effort, never blocks saving) ---------- */
+const SHEETS_TIMEOUT_MS = 4000;
+export function chicagoTime(d = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+    }).formatToParts(d).map((p) => [p.type, p.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+export async function copyLeadToSheet(lead, env, fetchImpl = fetch) {
+  const url = env.SHEETS_WEBHOOK_URL;
+  const secret = env.SHEETS_WEBHOOK_SECRET;
+  if (!url || !secret) return { ok: false, reason: "not_configured" };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), SHEETS_TIMEOUT_MS);
+  try {
+    const r = await fetchImpl(url, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }, // Apps Script reads e.postData.contents
+      redirect: "follow",
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        secret,
+        lead: {
+          created_at: chicagoTime(),
+          name: lead.name, business_name: lead.business_name, phone: lead.phone, email: lead.email,
+          source: lead.source, notes: lead.notes, audited_business: lead.audited_business,
+          audit_score: lead.audit_score, medium: lead.medium, campaign: lead.campaign,
+          consent_sms: lead.consent_sms, consent_email: lead.consent_email, status: "new",
+          session_id: lead.session_id,
+        },
+      }),
+    });
+    const text = (await r.text().catch(() => "")).slice(0, 300);
+    let ok = r.ok;
+    try { ok = r.ok && JSON.parse(text).ok === true; } catch { ok = false; }
+    return ok ? { ok: true } : { ok: false, reason: `http_${r.status}`, detail: text };
+  } catch (e) {
+    return { ok: false, reason: e?.name === "AbortError" ? "timeout" : "network" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* ---------- request helpers ---------- */
 const clientIp = (req) =>
   String(req.headers?.["x-forwarded-for"] || "").split(",")[0].trim() ||
@@ -304,6 +353,13 @@ export async function handleLead(req, res, { env = process.env, fetchImpl = fetc
 
   if (!stored.ok) log.error?.("[lead] storage failed:", stored.reason, stored.detail || "");
   if (!notified.ok) log.error?.("[lead] email failed:", notified.reason, notified.detail || "");
+
+  // Sheets copy runs after the Supabase insert; any failure is logged and ignored.
+  if (stored.ok && !stored.duplicate) {
+    let sheeted;
+    try { sheeted = await copyLeadToSheet(lead, env, fetchImpl); } catch { sheeted = { ok: false, reason: "error" }; }
+    if (!sheeted.ok && sheeted.reason !== "not_configured") log.warn?.("[lead] sheets copy failed:", sheeted.reason, sheeted.detail || "");
+  }
 
   if (stored.ok || notified.ok) {
     return send(res, 200, { ok: true, stored: stored.ok, notified: notified.ok });

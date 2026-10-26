@@ -208,3 +208,40 @@ test("Vercel-style pre-parsed req.body works", async () => {
   await handleLead(req, res, { env: ENV_BOTH, fetchImpl: f, log: quietLog() });
   assert.equal(res.statusCode, 200);
 });
+
+/* ---------- Google Sheets copy ---------- */
+const ENV_SHEETS = { SUPABASE_URL: "https://mockproj.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k", SHEETS_WEBHOOK_URL: "https://script.google.com/macros/s/mock/exec", SHEETS_WEBHOOK_SECRET: "s3cret" };
+
+test("sheets configured -> posts row after store with secret, still 200", async () => {
+  const calls = [];
+  const f = async (url, init) => {
+    calls.push({ url, body: JSON.parse(init.body) });
+    if (url.includes("script.google")) return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return new Response("", { status: 201 });
+  };
+  const { res } = await run(GOOD, ENV_SHEETS, f);
+  assert.equal(res.statusCode, 200);
+  const s = calls.find((c) => c.url.includes("script.google"));
+  assert.ok(s);
+  assert.equal(s.body.secret, "s3cret");
+  assert.equal(s.body.lead.name, "Jane Smith");
+  assert.match(s.body.lead.created_at, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+});
+
+test("sheets down/throwing -> lead still saved, 200", async () => {
+  const f = async (url) => {
+    if (url.includes("script.google")) throw new TypeError("boom");
+    return new Response("", { status: 201 });
+  };
+  const { res, log } = await run(GOOD, ENV_SHEETS, f);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json.stored, true);
+  assert.ok(log.lines.some((l) => l.includes("sheets copy failed")));
+});
+
+test("storage failed -> no sheets post", async () => {
+  const urls = [];
+  const f = async (url) => { urls.push(url); return new Response("x", { status: 500 }); };
+  await run(GOOD, ENV_SHEETS, f);
+  assert.ok(!urls.some((u) => u.includes("script.google")));
+});
