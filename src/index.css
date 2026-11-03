@@ -11,16 +11,16 @@
   --chrome: #f4f6f8;
   --chrome-2: #c3c9d0;
   --steel: #8a939d;
-  --ink: #2a3038;
+  --ink: #2b2f36;
   --muted: #59616b;
   --faint: #7d8691;
   --line: #ece3d8;
   --line-bright: #dcd1c3;
 
-  --orange: #f28a33;
-  --ember: #c8321e;
-  --flame: #ee6f27;
-  --gold: #f2b33d;
+  --orange: #f7731c;
+  --ember: #b8360f;
+  --flame: #f7731c;
+  --gold: #ffa23a;
   --orange-ink: #b4470f;
 
   --red: #c8321e;
@@ -30,17 +30,17 @@
   --amber: #a66a00;
   --blue: #1d5fa8;
 
-  --grad: linear-gradient(120deg, #c8321e 0%, #ee6f27 52%, #e9a02f 100%);
-  --btn-grad: linear-gradient(135deg, #c8321e 0%, #e2601f 100%);
+  --grad: linear-gradient(120deg, #b8360f 0%, #f7731c 50%, #ffa23a 100%);
+  --btn-grad: linear-gradient(135deg, #b8360f 0%, #f7731c 100%);
   --glow: 0 12px 34px rgba(238, 111, 39, 0.26);
   --shadow: 0 18px 50px rgba(42, 48, 56, 0.09);
   --shadow-sm: 0 6px 20px rgba(42, 48, 56, 0.07);
   --radius: 22px;
 
   --display: 'Fraunces', Georgia, serif;
-  --sans: 'DM Sans', system-ui, sans-serif;
+  --sans: 'Figtree', 'DM Sans', system-ui, sans-serif;
   --script: 'Great Vibes', cursive;
-  --mono: 'DM Sans', system-ui, sans-serif;
+  --mono: 'Figtree', 'DM Sans', system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -675,3 +675,10 @@ h1, h2, h3 { font-family: var(--display); font-optical-sizing: auto; color: var(
 .wordmark .flame-text, .footer-script .flame-text { padding-right: 0.18em; margin-right: -0.1em; }
 .fallback-actions .btn-primary, .fallback-actions .btn-ghost { white-space: normal; overflow-wrap: anywhere; text-align: center; border-radius: 16px; }
 .fallback-addr { margin-top: 10px; color: #5a3a1a; font-size: 13px; text-align: center; overflow-wrap: anywhere; }
+
+/* ----- RepBlaze flame-R rebrand: Figtree wordmark ----- */
+.wordmark, .footer-script { font-family: 'Figtree', var(--sans); font-weight: 800; letter-spacing: -0.02em; color: #2b2f36; padding: 0; }
+.wordmark { font-size: 30px; }
+.footer-script { font-size: 38px; }
+.wordmark .flame-text, .footer-script .flame-text { background: none; -webkit-text-fill-color: #f7731c; color: #f7731c; padding-right: 0; margin-right: 0; font-style: normal; }
+.brand img { object-fit: contain; }

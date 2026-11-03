@@ -428,7 +428,7 @@ function LeadModal({ onClose, businessName, onSubmit }) {
         <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         {!sent ? (
           <form onSubmit={(e) => { e.preventDefault(); submit(); }} noValidate>
-            <div className="modal-flame" aria-hidden="true"><img src="/brand/flame-icon.png" alt="" /></div>
+            <div className="modal-flame" aria-hidden="true"><img src="/brand/flame-r.svg" alt="" /></div>
             <div id="lead-title" className="modal-title">Get your free fix plan</div>
             <div className="modal-sub">
               We’ll look over {form.business || "your business"}’s Google presence and walk you through what we’d fix first. No pressure.
@@ -754,7 +754,7 @@ export default function App() {
       <header className="site-header no-print">
         <div className="nav-shell">
           <a className="brand" href="#top" aria-label="RepBlaze home">
-            <img src="/brand/flame-icon.png" alt="" width="44" height="44" />
+            <img src="/brand/flame-r.svg" alt="" width="44" height="44" />
             <span className="wordmark">Rep<span className="flame-text">Blaze</span></span>
           </a>
           <nav className={`desktop-nav ${navOpen ? "open" : ""}`} aria-label="Main navigation">
@@ -807,7 +807,7 @@ export default function App() {
               <div className="fc-line">Every happy customer is a review waiting to be asked for.</div>
             </div>
             <div className="float-card float-check" aria-hidden="true">
-              <img src="/brand/flame-icon.png" alt="" />
+              <img src="/brand/flame-r.svg" alt="" />
               <div><b>Profile check</b><span>Hours · Photos · Replies</span></div>
             </div>
           </div>
@@ -875,7 +875,7 @@ export default function App() {
 
         {result && (
           <div ref={reportRef} className="report-shell audit-v2" style={{ scrollMarginTop: 92 }}>
-            <div className="audit-brandbar"><img src="/brand/logo-side.webp" alt="RepBlaze" height="44" /><small>LOCAL VISIBILITY REPORT</small></div>
+            <div className="audit-brandbar"><img src="/brand/logo-light.svg" alt="RepBlaze" height="44" /><small>LOCAL VISIBILITY REPORT</small></div>
             <div className="audit-cover"><div className="audit-kicker">COMPLIMENTARY BUSINESS AUDIT · {new Date().toLocaleDateString()}</div><h2>{result.name}<span> / Visibility Report</span></h2><div className="audit-cover-meta"><span>BUSINESS <b>{result.name}</b></span><span>LOCATION <b>{result.address}</b></span><span>PREPARED BY <b>RepBlaze</b></span></div></div>
             <nav className="audit-toc no-print" aria-label="Audit report sections"><a href="#audit-snapshot"><em>00</em> Snapshot</a><a href="#audit-competition"><em>01</em> Competition</a><a href="#audit-evidence"><em>02</em> Evidence</a><a href="#audit-plan"><em>03</em> Action plan</a><a href="#audit-findings"><em>04</em> Findings</a></nav>
             <div className="print-only" style={{ marginBottom: 20, paddingBottom: 12, borderBottom: "3px solid var(--red)" }}>
@@ -1145,7 +1145,7 @@ export default function App() {
         {/* ---------- FINAL CTA ---------- */}
         <section className="final-cta no-print">
           <div className="section-shell final-cta-inner" data-reveal>
-            <img className="final-flame" src="/brand/flame-icon.png" alt="" aria-hidden="true" />
+            <img className="final-flame" src="/brand/flame-r.svg" alt="" aria-hidden="true" />
             <div>
               <h2>You’re good at what you do.<br /><span className="flame-text">Let’s make sure your town knows it.</span></h2>
               <p>Start with a free audit. See the gaps. Decide from there.</p>
@@ -1161,7 +1161,7 @@ export default function App() {
       <footer className="site-footer no-print">
         <div className="section-shell footer-grid">
           <div className="footer-brand">
-            <img src="/brand/flame-icon.png" alt="" width="96" height="96" loading="lazy" />
+            <img src="/brand/flame-r.svg" alt="" width="96" height="96" loading="lazy" />
           </div>
           <div className="footer-col">
             <div className="footer-script">Rep<span className="flame-text">Blaze</span></div>
