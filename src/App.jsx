@@ -3,6 +3,7 @@ import "./audit-v2.css";
 import { CONTACT } from "./contact.js";
 import { BeforeAfterProfile, ReviewStarDemo } from "./Interactive.jsx";
 import { useReveal } from "./useReveal.js";
+import IntakeChat from "./IntakeChat.jsx";
 
 /* Leads go to our own server route, which stores them (Supabase) AND emails Charlie. */
 const LEAD_ENDPOINT = "/api/lead";
@@ -534,6 +535,7 @@ export default function App() {
   const [siteScan, setSiteScan] = useState(null);
   const [siteScanLoading, setSiteScanLoading] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const reportRef = useRef(null);
   const openModal = useCallback(() => { setNavOpen(false); setModalOpen(true); }, []);
   const closeModal = useCallback(() => setModalOpen(false), []);
@@ -552,6 +554,7 @@ export default function App() {
 
   useEffect(() => {
     if (result && reportRef.current) reportRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (result) { const t = setTimeout(() => setChatOpen(true), 2500); return () => clearTimeout(t); }
   }, [result]);
 
   const handleLead = async (form) => {
@@ -563,7 +566,7 @@ export default function App() {
       email: form.email,
       notes: form.notes,
       website: form.website, // honeypot
-      source: params.get("utm_source") || (result ? "audit-tool" : "landing-page"),
+      source: form.source || params.get("utm_source") || (result ? "audit-tool" : "landing-page"),
       medium: params.get("utm_medium"),
       campaign: params.get("utm_campaign"),
       content: params.get("utm_content"),
@@ -1182,6 +1185,8 @@ export default function App() {
           People and businesses pictured are not RepBlaze clients.
         </div>
       </footer>
+
+      <IntakeChat key={result?.name || "none"} open={chatOpen} setOpen={setChatOpen} audit={result} onSubmit={handleLead} />
 
       {modalOpen && (
         <LeadModal onClose={closeModal} businessName={result?.name} onSubmit={handleLead} />

@@ -1,0 +1,23 @@
+.ic-bubble{position:fixed;right:18px;bottom:18px;z-index:60;display:flex;align-items:center;gap:8px;padding:10px 16px 10px 10px;border:0;border-radius:999px;background:var(--btn-grad);color:#fff;font:600 15px var(--sans);box-shadow:var(--glow);cursor:pointer}
+.ic-bubble img{background:#fff;border-radius:50%;padding:3px}
+.ic-panel{position:fixed;right:18px;bottom:18px;z-index:60;width:380px;max-height:min(640px,calc(100vh - 36px));display:flex;flex-direction:column;background:var(--paper);border:1px solid var(--line-bright);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;font-family:var(--sans);color:var(--ink)}
+.ic-head{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface);border-bottom:1px solid var(--line)}
+.ic-head b{font:700 18px var(--display);display:block}
+.ic-head small{color:var(--faint);font-size:12px}
+.ic-x{margin-left:auto;border:0;background:none;font-size:28px;line-height:1;color:var(--muted);cursor:pointer;padding:4px 8px}
+.ic-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;min-height:160px}
+.ic-msg{max-width:85%;padding:9px 13px;border-radius:16px;font-size:15px;line-height:1.4;white-space:pre-wrap}
+.ic-bot{background:var(--surface);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px}
+.ic-me{background:var(--btn-grad);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.ic-input{padding:12px 14px;border-top:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:8px}
+.ic-field{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--line-bright);border-radius:12px;font:16px var(--sans);background:#fff;color:var(--ink)}
+.ic-field:focus{outline:2px solid var(--flame);border-color:transparent}
+.ic-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ic-chip{padding:8px 14px;border-radius:999px;border:1px solid var(--line-bright);background:#fff;font:500 14px var(--sans);color:var(--ink);cursor:pointer}
+.ic-chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.ic-go{width:100%}
+.ic-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.ic-fallback{font-size:13px;color:var(--muted);margin:0}
+.ic-panel .consent-row{font-size:12.5px}
+@media (max-width:480px){.ic-panel{right:0;left:0;bottom:0;width:auto;max-height:88vh;border-radius:var(--radius) var(--radius) 0 0}.ic-bubble{right:14px;bottom:14px}}
+@media print{.ic-bubble,.ic-panel{display:none}}
